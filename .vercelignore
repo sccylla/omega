@@ -1,0 +1,18 @@
+# Never upload worker ledgers, credentials, local configuration or test artifacts.
+.git/
+.omega-data/
+.vercel/
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+*.log
+node_modules/
+tests/
+scripts/
+test-results/
+playwright-report/
+**/*.sqlite
+**/*.db

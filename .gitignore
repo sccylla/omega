@@ -13,3 +13,6 @@ node_modules/
 __pycache__/
 *.sqlite
 *.db
+
+# Persistent worker ledger, lock and local account state
+.omega-data/

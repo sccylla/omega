@@ -8,7 +8,6 @@ const price=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximum
 const htmlEscape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let saved;try{saved=JSON.parse(localStorage.getItem(STORAGE)||'null')}catch{};
 let account=E.restore(saved),quotes={},series={},latestTime={},lastRefresh=0,loading=false;
-function persist(){try{localStorage.setItem(STORAGE,JSON.stringify(account))}catch(e){$('paper-ticket-status').textContent='Browser storage is unavailable. Demo trades may not persist.'}}
 function chartSVG(rows){
  const candles=(rows||[]).filter(r=>Number.isFinite(r[4])&&r[4]>0);if(candles.length<4)return '<div class="chart-loading">Historical chart unavailable</div>';
  const ys=candles.map(r=>r[4]),min=Math.min(...ys),max=Math.max(...ys),margin=(max-min)*.15||max*.0001;
@@ -35,12 +34,12 @@ function summary(){
 function renderPositions(){
  $('paper-open-rows').innerHTML=account.positions.length?account.positions.map(p=>{
  const quote=quotes[p.symbol],unreal=E.markPnl(p,quote||p.entry);
- return `<tr><td><strong>${p.symbol} / USDT</strong></td><td><span class="side-tag ${p.side==='BUY'?'long':'short'}">${p.side==='BUY'?'BUY / LONG':'SELL / SHORT'}</span></td><td>$${price(p.entry)}</td><td>${quote?'$'+price(quote):'—'}</td><td class="${unreal<0?'paper-stat-down':'paper-stat-up'} demo-position-value">${money(unreal-p.entryFee-(quote||p.entry)*p.qty*E.FEE_RATE)}*</td><td>${p.auto?'$'+price(p.stop)+' / Adaptive':'$'+price(p.stop)+' / $'+price(p.target)}</td><td><button class="paper-close-btn" data-paper-close="${p.id}" ${quote?'':'disabled'}>Close</button></td></tr>`
+ return `<tr><td><strong>${p.symbol} / USDT</strong></td><td><span class="side-tag ${p.side==='BUY'?'long':'short'}">${p.side==='BUY'?'BUY / LONG':'SELL / SHORT'}</span></td><td>$${price(p.entry)}</td><td>${quote?'$'+price(quote):'—'}</td><td class="${unreal<0?'paper-stat-down':'paper-stat-up'} demo-position-value">${money(unreal-p.entryFee-(quote||p.entry)*p.qty*E.FEE_RATE)}*</td><td>${p.auto?'$'+price(p.stop)+(p.targetNet?' / +$'+p.targetNet.toFixed(2)+' net':' / Trail'):'$'+price(p.stop)+' / $'+price(p.target)}</td><td><button class="paper-close-btn" data-paper-close="${p.id}" ${quote?'':'disabled'}>Close</button></td></tr>`
  }).join(''):'<tr><td colspan="7" class="center">No open demo positions. Practice your first trade above.</td></tr>';
  $('paper-open-rows').querySelectorAll('[data-paper-close]').forEach(el=>el.addEventListener('click',()=>{
  const p=account.positions.find(x=>x.id===el.dataset.paperClose),q=quotes[p?.symbol];if(!p||!Number.isFinite(q))return;
  if(!window.confirm('Close your virtual '+p.symbol+' '+p.side+' position at the latest reported candle price?'))return;
- account=E.close(account,p.id,q,'Manual demo close');persist();render();paperStatus('Position closed in your virtual portfolio.');
+ window.OmegaAccount.transact(a=>E.close(a,p.id,q,'Manual demo close')).catch(e=>paperStatus(e.message));
  }));
  $('paper-history-rows').innerHTML=account.closed.length?account.closed.slice(0,12).map(x=>`<tr><td><strong>${x.symbol} / USDT</strong></td><td>${x.side}</td><td class="${x.net<0?'paper-stat-down':'paper-stat-up'}">${money(x.net)}</td><td>${new Date(x.closedAt).toLocaleString()}</td><td>${htmlEscape(x.reason)}</td></tr>`).join(''):'<tr><td colspan="5" class="center">Completed virtual trades will appear here.</td></tr>';
 }
@@ -67,21 +66,20 @@ function updateSelected(){
 }
 async function quotesRefresh(){
  if(loading)return;loading=true;
- const current=$('paper-symbol').value,previous=account;
  const needed=[...new Set([...SYMBOLS,...account.positions.map(p=>p.symbol)])].slice(0,12);
  const all=await Promise.all(needed.map(async sym=>{
   try{
    const response=await fetch('/api/market?exchange=bybit&symbol='+sym+'&tf=5m&limit=100',{cache:'no-store'});
    const data=await response.json();if(!response.ok||!data.candles?.length)throw Error(data.error||'Public feed unavailable');
    const closed=data.candles.filter(x=>x[0]+300000<=Date.now());const c=closed.at(-1);
-   if(!c||Date.now()-c[0]>1200000)throw Error('Candle too old');
+   if(!c||Date.now()-(c[0]+300000)>360000)throw Error('Candle too old');
    return {sym,quote:Number(c[4]),candles:closed.slice(-80),time:Date.now()};
   }catch(err){return {sym,error:err.message}}
  }));
  for(const r of all){if(r.error){delete quotes[r.sym];delete latestTime[r.sym]}else{quotes[r.sym]=r.quote;series[r.sym]=r.candles;latestTime[r.sym]=r.time}}
  // No checks run when browser is closed. Candle samples do not model actual execution or stop fills.
  const contexts={};for(const sym of Object.keys(series)){const p=account.positions.find(x=>x.symbol===sym);if(p&&window.OmegaSignals){const m=window.OmegaSignals.exitContext(series[sym],p.side);if(m)contexts[sym]=m}}
- account=E.applyQuote(account,quotes,Date.now(),contexts);if(account!==previous)persist();lastRefresh=Date.now();
+ try{account=await window.OmegaAccount.transact(a=>E.applyQuote(a,quotes,Date.now(),contexts))}catch(e){paperStatus(e.message)}lastRefresh=Date.now();
  $('paper-refresh').textContent='↻';updateSelected();render();loading=false;
 }
 async function homeOpportunities(){
@@ -99,18 +97,19 @@ async function homeOpportunities(){
 $('paper-symbol').addEventListener('change',()=>{updateSelected();ticketPreview()});
 $('paper-size').addEventListener('input',()=>{document.querySelectorAll('[data-paper-size]').forEach(b=>b.classList.toggle('selected',Number(b.dataset.paperSize)===Number($('paper-size').value)));ticketPreview()});
 document.querySelectorAll('[data-paper-size]').forEach(b=>b.addEventListener('click',()=>{$('paper-size').value=b.dataset.paperSize;$('paper-size').dispatchEvent(new Event('input'))}));
-function submit(side){const sym=$('paper-symbol').value,notional=Number($('paper-size').value);
+async function submit(side){const sym=$('paper-symbol').value,notional=Number($('paper-size').value);
  try{
   if(Date.now()-(latestTime[sym]||0)>900000)throw Error('Public quote is stale. Refresh first.');
   const p=E.entryPreview(account,quotes,{symbol:sym,side,notional});
   if(!window.confirm(`Open a ${side==='BUY'?'BUY / LONG':'SELL / SHORT'} virtual ${sym} position for ${money(p.notional)}?\n\nEstimated stop risk: ${money(p.estimatedStopRisk)} including fees.\nThis is browser-only demo trading, not a Bybit order.`))return;
-  account=E.open(account,quotes,{symbol:sym,side,notional});persist();render();paperStatus('Your '+side+' demo position has been opened.');
+  account=await window.OmegaAccount.transact(a=>E.open(a,quotes,{symbol:sym,side,notional}));render();paperStatus('Your '+side+' demo position has been opened.');
  }catch(e){paperStatus(e.message)}
 }
 $('paper-buy').addEventListener('click',()=>submit('BUY'));
 $('paper-sell').addEventListener('click',()=>submit('SELL'));
 $('paper-refresh').addEventListener('click',()=>{paperStatus('Refreshing public prices…');quotesRefresh()});
-$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $10,000? All simulated positions and trade history on this device will be erased.'))return;account=E.initial();persist();render();paperStatus('Virtual balance reset to $10,000.');});
+$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $10,000? All simulated positions and trade history on this device will be erased.'))return;window.OmegaAccount.transact(()=>E.initial()).then(()=>{window.dispatchEvent(new Event('omega:paper-reset'));paperStatus('Virtual balance reset to $10,000.')}).catch(e=>paperStatus(e.message));});
+window.addEventListener('omega:paper-updated',e=>{account=e.detail;render()});
 render();updateSelected();quotesRefresh();homeOpportunities();
 setInterval(()=>{if(!document.hidden&&['demo','overview'].includes(location.hash.slice(1)))quotesRefresh()},25000);
 window.addEventListener('storage',e=>{if(e.key===STORAGE){let next;try{next=JSON.parse(e.newValue||'null')}catch{};account=E.restore(next);render()}});

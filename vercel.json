@@ -1,6 +1,9 @@
 {
   "version": 2,
   "functions": {
+    "api/bot.js": {
+      "maxDuration": 25
+    },
     "api/market.js": {
       "maxDuration": 15
     },

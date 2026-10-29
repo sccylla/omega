@@ -1,16 +1,17 @@
 'use strict';
 (()=>{
  const $=id=>document.getElementById(id),nav=[...document.querySelectorAll('[data-view]')];
- const viewNames={overview:'Dashboard',demo:'Demo trading',scanner:'Opportunities',forex:'Forex',futures:'Crypto futures',research:'Backtests',connections:'Connections'};
+ const viewNames={overview:'Dashboard',demo:'Demo trading',scanner:'Opportunities',forex:'Forex',futures:'Crypto futures',research:'Backtests',connections:'Connections',real:'Real account'};
  const pairs={forex:[['EUR_USD','EUR / USD'],['GBP_USD','GBP / USD'],['USD_JPY','USD / JPY']],futures:[['BTC','BTC / USDT'],['ETH','ETH / USDT'],['SOL','SOL / USDT']]};
  let state={view:'overview',riskPct:.25,dailyRiskPct:2,equity:10000,latest:null,preview:null,authenticated:false};
  const number=(x,places=2)=>Number(x).toLocaleString('en-US',{minimumFractionDigits:places,maximumFractionDigits:places}),money=x=>(x<0?'−$':'$')+number(Math.abs(Number(x)),2);
  const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  let toastTimeout;function message(s){const el=$('toast');el.textContent=s;el.hidden=false;clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>el.hidden=true,5500)}
- function showPage(view){if(!viewNames[view])return;state.view=view;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));nav.forEach(x=>x.classList.toggle('active',x.dataset.view===view));$('breadcrumb').textContent=viewNames[view];history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='connections')loadConnections();}
+ function showPage(view){if(document.body.dataset.account==='real'&&['overview','demo'].includes(view))view='real';if(!viewNames[view])return;state.view=view;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('active',x.id==='view-'+view));nav.forEach(x=>x.classList.toggle('active',x.dataset.view===view||(view==='real'&&x.dataset.view==='demo')));$('breadcrumb').textContent=viewNames[view];history.replaceState(null,'','#'+view);window.scrollTo({top:0,behavior:'smooth'});if(view==='connections')loadConnections();}
  document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.view)));
  document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>showPage(b.dataset.go)));
  $('brand').addEventListener('click',e=>{e.preventDefault();showPage('overview')});
+ window.addEventListener('omega:account-mode',e=>showPage(e.detail==='real'?'real':'demo'));
  const params=()=>({equity:String(state.equity),riskPct:String(state.riskPct),dailyRiskPct:String(state.dailyRiskPct)});
  function status(ok,text){$('api-status').innerHTML='<span class="dot '+(ok?'':'bad')+'"></span>'+escape(text)}
  async function get(url){const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});let data;try{data=await r.json()}catch{throw Error('Service returned invalid data')}if(!r.ok)throw Error(data.error||'The market feed is currently unavailable');return data;}
