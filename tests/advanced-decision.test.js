@@ -1,17 +1,17 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {decide,holdout,candles,resampleComplete,correlation}=require('../lib/advanced-decision');
+const {decide,holdout,candles,resampleComplete,correlation,priceRules}=require('../lib/advanced-decision');
 const NOW=Date.UTC(2026,9,29,20,0,12);
 // Artificial, deliberately well-covered market. It is not a real performance sample.
-function series(n,duration,trend=.0006,amplitude=.008,period=16,phase=1,now=NOW){
+function series(n,duration,trend=.0006,amplitude=.008,period=16,phase=1,now=NOW,padding=.0025){
  let previous;
  return Array.from({length:n},(_,i)=>{
   const timestamp=Math.floor(now/duration)*duration-(n-i)*duration,close=Math.exp(i*trend)*(1+amplitude*Math.sin((i-n+1+phase)*2*Math.PI/period)),open=previous||close;
-  previous=close;return [timestamp,open,Math.max(open,close)+close*.0025,Math.min(open,close)-close*.0025,close,100000];
+  previous=close;return [timestamp,open,Math.max(open,close)+close*padding,Math.min(open,close)-close*padding,close,100000];
  });
 }
 function evidence(now=NOW){
- const five=series(1000,300000,.0006,.008,16,1,now),price=five.at(-1)[4],bid=price*.99995,ask=price*1.00005;
+ const five=series(1000,300000,.0008,.003,6,2,now,.0005),price=five.at(-1)[4],bid=price*.99995,ask=price*1.00005;
  return {symbol:'XRPUSDT',observedAt:now,sourceTimes:Object.fromEntries(['five','quarter','hour','fourHour','benchmarkFive','book','ticker','openInterest','fundingHistory','instrument'].map(k=>[k,now])),errors:[],five,
   quarter:series(300,900000,.001,.002,20,1,now),hour:series(200,3600000,.0015,.002,20,1,now),fourHour:series(100,14400000,.002,.002,20,1,now),benchmarkFive:series(200,300000,.0002,.0002,20,1,now),
   book:{ts:now,b:Array.from({length:10},(_,i)=>[String(bid*(1-i*.0001)),'10000']),a:Array.from({length:10},(_,i)=>[String(ask*(1+i*.0001)),'10000'])},
@@ -88,9 +88,13 @@ test('complete resampling does not fabricate missing or partial higher-timeframe
 });
 test('stop-first stress handling does not count an ambiguous candle as a guaranteed win',()=>{
  const e=evidence(),baseline=holdout(e,{now:NOW,side:'BUY'});
- // The first holdout signal occurs at bar600 for this fixed waveform.
- // Next bar visits both possible exit prices, with no observable intrabar order.
- e.five[601][2]*=1.1;e.five[601][3]*=.9;
+ // Find a confirmed historical entry; its next bar touches both protective levels.
+ let first=600;
+ for(;first<e.five.length-1;first++){
+  const cutoff=e.five[first][0]+300000,known={five:e.five.slice(0,first+1),quarter:e.quarter.filter(r=>r[0]+900000<=cutoff),hour:e.hour.filter(r=>r[0]+3600000<=cutoff),fourHour:e.fourHour.filter(r=>r[0]+14400000<=cutoff)};
+  if(priceRules(known,'BUY').pass)break;
+ }
+ e.five[first+1][2]*=1.1;e.five[first+1][3]*=.9;
  const stressed=holdout(e,{now:NOW,side:'BUY'});
  assert.ok(stressed.ambiguousBars>=1);assert.ok(stressed.netPnl<baseline.netPnl);
 });
@@ -104,5 +108,17 @@ test('higher-timeframe bars from after a historical entry are not visible to tha
 });
 test('execution quote is distinct from the closed-candle signal and uses the inspected book',()=>{
  const e=evidence(),plan=decide(e,{now:NOW});
- assert.ok(plan.executionPrice>plan.price);assert.equal(plan.maximumHoldMinutes,30);assert.ok(plan.executionPrice>=Number(e.book.a[0][0]));
+ assert.ok(plan.executionPrice>plan.price);assert.equal(plan.maximumHoldMinutes,null);assert.ok(plan.executionPrice>=Number(e.book.a[0][0]));
+});
+test('no-time-limit holdout keeps unresolved trades open instead of inventing sample-end exits',()=>{
+ const e=evidence();
+ // Preserve all preceding signals but leave the final entered trade between its stop and target.
+ for(let i=970;i<e.five.length;i++){
+  const previous=e.five[969][4];e.five[i]=[e.five[i][0],previous,previous*1.0001,previous*.9999,previous,100000];
+ }
+ const result=holdout(e,{now:NOW,side:'BUY'});
+ assert.equal(result.maximumHoldMinutes,null);
+ assert.equal(result.unresolvedTrades,1);assert.equal(result.passed,false);assert.ok(Number.isFinite(result.unresolvedMarkedNet));
+ assert.ok(result.recent.every(r=>['Stop first','Profit target'].includes(r.reason)));
+ assert.match(result.reason,/unresolved/);
 });

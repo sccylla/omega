@@ -161,10 +161,10 @@ test('a second same-direction strongly correlated position is blocked',async t=>
  worker.analyze=async symbol=>({...await analyze(symbol),metrics:{benchmarkCorrelation:.95}});
  await worker.cycle();assert.equal(broker.sent.length,1);assert.match(worker.status().decisions[0].reason,/concentration/);
 });
-test('an expired holding period submits one recorded reduce-only close even when new entries are paused',async t=>{
+test('old saved holding limits never trigger a live close while profit/stop protection remains active',async t=>{
  const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();
- worker.state.managed[0].openedAt=Date.now()-31*60000;await worker.control({action:'pause'});
- await worker.cycle();await worker.cycle();assert.equal(broker.sent.filter(x=>x.close).length,1);assert.equal(worker.status().active,false);
+ worker.state.managed[0].openedAt=Date.now()-24*60*60000;worker.state.managed[0].maximumHoldMinutes=30;await worker.control({action:'pause'});
+ await worker.cycle();await worker.cycle();assert.equal(broker.sent.filter(x=>x.close).length,0);assert.equal(worker.status().active,false);assert.ok(Number(broker.s.positions[0].stopLoss)>0);assert.ok(Number(broker.s.positions[0].takeProfit)>0);
 });
 test('terminal partially-filled cancellation is not an outstanding entry order',async()=>{
  const broker=new LiveBroker();broker.request=async(method,route)=>{
