@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),{scanMarkets,summarize,explain}=require('../static/market-selection');
+const test=require('node:test'),assert=require('node:assert/strict'),{scanMarkets,summarize,explain,within}=require('../static/market-selection');
 const row=symbol=>({symbol,turnover24h:1e8,spreadBps:1});
 test('all pairs are considered and the highest-ranked qualifying market beyond the old shortlist wins',async()=>{
  const rows=Array.from({length:20},(_,i)=>row('PAIR'+i+'USDT')),calls=[];
@@ -39,4 +39,44 @@ test('no-entry diagnostics distinguish feed failures, historical rejection and p
  const blocked=await scanMarkets([row('HELDUSDT')],{analyze:async()=>({eligible:true,side:'BUY',rank:100}),canEnter:()=>false});
  assert.equal(blocked.summary.qualified,1);assert.equal(blocked.summary.accountBlocked,1);assert.equal(blocked.picks.length,0);
  assert.match(explain(blocked.summary),/existing positions or portfolio concentration/);
+});
+test('a bounded pass screens the whole universe and selects verified evidence without waiting for stalled pairs',async()=>{
+ const rows=[row('GOODUSDT'),...Array.from({length:100},(_,i)=>row('PAIR'+i+'USDT')),{...row('LOWUSDT'),turnover24h:1}];
+ const signals=[];
+ const result=await scanMarkets(rows,{maxMs:40,requestTimeoutMs:500,allowPartial:true,analyze:async(symbol,{signal})=>{
+  signals.push(signal);if(symbol==='GOODUSDT')return {eligible:true,side:'BUY',rank:10};return new Promise(()=>{});
+ }});
+ assert.equal(result.coverage.screened,102);assert.equal(result.coverage.rejected,1);assert.equal(result.coverage.complete,false);
+ assert.equal(result.coverage.timedOut,true);assert.ok(result.coverage.remaining>0);assert.equal(result.picks[0].symbol,'GOODUSDT');
+ assert.ok(signals.every(s=>s.aborted));
+});
+test('successive bounded passes resume after attempted pairs instead of repeatedly checking the first batch',async()=>{
+ const rows=['ONEUSDT','TWOUSDT','THREEUSDT','FOURUSDT'].map(row),seen=[];
+ const analyze=async symbol=>{seen.push(symbol);return new Promise(()=>{})};
+ const first=await scanMarkets(rows,{analyze,maxMs:30,allowPartial:true});
+ const second=await scanMarkets(rows,{analyze,maxMs:30,allowPartial:true,startAfter:first.nextAfter});
+ assert.deepEqual(seen,['ONEUSDT','TWOUSDT','THREEUSDT','FOURUSDT']);assert.equal(second.nextAfter,'FOURUSDT');
+});
+test('explicit cancellation immediately stops an ignored abort and discards partial qualifying results',async()=>{
+ const controller=new AbortController();let began;
+ const started=new Promise(resolve=>began=resolve);
+ const scan=scanMarkets(['GOODUSDT','STUCKUSDT'].map(row),{signal:controller.signal,allowPartial:true,analyze:async symbol=>{
+  if(symbol==='GOODUSDT')return {eligible:true,side:'BUY',rank:10};began();return new Promise(()=>{});
+ }});
+ await started;controller.abort();const result=await scan;
+ assert.equal(result.coverage.cancelled,true);assert.deepEqual(result.picks,[]);
+});
+test('a stalled single market times out and cannot prevent later pairs being analyzed',async()=>{
+ const calls=[];const result=await scanMarkets(['STUCKUSDT','GOODUSDT'].map(row),{concurrency:1,requestTimeoutMs:20,analyze:async symbol=>{
+  calls.push(symbol);if(symbol==='STUCKUSDT')return new Promise(()=>{});return {eligible:true,side:'SELL',rank:10};
+ }});
+ assert.deepEqual(calls,['STUCKUSDT','GOODUSDT']);assert.equal(result.coverage.incomplete,1);assert.match(result.results[0].reason,/timed out/);assert.equal(result.picks[0].symbol,'GOODUSDT');
+});
+test('deadline includes response body parsing and late results never change the completed pass',async()=>{
+ let resolveBody,requestSignal;
+ await assert.rejects(within(async signal=>{requestSignal=signal;const response={json:()=>new Promise(resolve=>resolveBody=resolve)};return response.json()},{timeoutMs:20,label:'Market list'}),/Market list timed out/);
+ assert.equal(requestSignal.aborted,true);resolveBody({rows:[]});
+ let release;
+ const result=await scanMarkets([row('LATEUSDT')],{maxMs:20,allowPartial:true,analyze:()=>new Promise(resolve=>release=resolve)});
+ assert.equal(result.picks.length,0);release({eligible:true,side:'BUY',rank:100});await Promise.resolve();await Promise.resolve();assert.equal(result.picks.length,0);assert.equal(result.results[0].eligible,false);
 });
