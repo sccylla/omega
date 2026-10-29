@@ -1,0 +1,15 @@
+# Keep credentials, accounts, and local data out of the public repository
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+credentials.json
+node_modules/
+.vercel/
+.DS_Store
+*.log
+__pycache__/
+*.sqlite
+*.db

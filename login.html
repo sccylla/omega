@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#091218">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Sign In — OMEGA TRADER</title>
+  <meta name="description" content="Private access to OMEGA TRADER connected broker accounts.">
+  <link rel="stylesheet" href="/static/login.css">
+  <script src="/static/login.js" defer></script>
+</head>
+<body>
+  <main class="auth-layout">
+    <section class="intro" aria-label="OMEGA Trader introduction">
+      <a href="/" class="brand" aria-label="OMEGA TRADER home"><span class="logo">Ω</span><span>OMEGA<span class="green">TRADER</span><small>INTELLIGENCE TERMINAL</small></span></a>
+      <div class="intro-copy"><div class="kicker"><span class="pulse"></span> PROTECTED ACCESS</div><h1>Trade research.<br><span class="green">Private account access.</span></h1><p>Sign in to inspect your connected account balances and positions. Market scanners and historical analysis remain available without signing in.</p><div class="feature"><span>✓</span> Bybit live accounts — read only</div><div class="feature"><span>✓</span> Separate Forex and futures demo environments</div><div class="feature"><span>✓</span> Real-money order execution remains disabled</div></div>
+      <div class="intro-foot">OMEGA TRADER · SECURITY-FIRST ACCESS</div>
+    </section>
+    <section class="auth-panel" aria-labelledby="login-heading">
+      <div class="auth-card">
+        <div class="lock-icon" aria-hidden="true">⌁</div>
+        <div class="section-label">OWNER DASHBOARD</div>
+        <h2 id="login-heading">Welcome back</h2>
+        <p class="subhead">Enter the dashboard password you configured privately in Vercel.</p>
+        <form id="owner-login" novalidate>
+          <label for="password">Dashboard password</label>
+          <div class="password-wrap"><input type="password" id="password" name="password" autocomplete="current-password" placeholder="Enter your dashboard password" required minlength="16"><button type="button" id="show-password" aria-label="Show password">Show</button></div>
+          <button id="login-submit" type="submit" class="submit">Sign in securely <span>→</span></button>
+        </form>
+        <div id="login-message" role="status" aria-live="polite" class="message" hidden></div>
+        <div id="logged-in" class="logged-in" hidden><div class="success">✓ Session active</div><p>You're signed in. Your broker accounts are available under Connections.</p><a href="/#connections" class="submit continue-link">Open Connections →</a><button id="logout" type="button" class="logout">Sign out</button></div>
+        <div class="separator"><span>or</span></div>
+        <a class="guest" href="/">Continue to public market scanner →</a>
+        <div class="auth-foot"><span class="shield">♢</span> Password stays on your device during entry and is sent only to this website's secure authentication endpoint. No broker orders are placed by signing in.</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
