@@ -8,11 +8,11 @@ class FakeBroker{
  async markets(){return [{symbol:'XRPUSDT',lastPrice:'107.9',bid1Price:'107.89',ask1Price:'107.9',turnover24h:'100000000',price24hPcnt:'.05',fundingRate:'.0001'}]}
  async candles(){return candles()}async ticket(symbol,side,plan){return {symbol,side,qty:'.09',price:plan.price,notional:9.8,stopLoss:'106',takeProfit:'110'}}
  async leverage(){}
- async enter(ticket,link){this.sent.push({ticket,link});if(this.timeout)throw Error('Network timed out after submission');this.orders.push({orderLinkId:link,orderStatus:'Filled'});this.s.positions=[{symbol:ticket.symbol,side:ticket.side,size:ticket.qty,stopLoss:ticket.stopLoss,takeProfit:ticket.takeProfit,markPrice:String(ticket.price)}]}
+ async enter(ticket,link){this.sent.push({ticket,link});if(this.timeout)throw Error('Network timed out after submission');this.orders.push({symbol:ticket.symbol,side:ticket.side,orderLinkId:link,orderStatus:'Filled',cumExecQty:ticket.qty,leavesQty:'0'});this.s.positions=[{symbol:ticket.symbol,side:ticket.side,size:ticket.qty,stopLoss:ticket.stopLoss,takeProfit:ticket.takeProfit,markPrice:String(ticket.price),avgPrice:String(ticket.price)}]}
  async order(symbol,link){return this.orders.find(x=>x.orderLinkId===link)||null}
  async close(position,link){this.sent.push({close:true,link})}
 }
-function setup(t,options={}){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'omega-worker-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const broker=new FakeBroker(),env={OMEGA_LIVE_ORDERS_ENABLED:'true',...options};return {directory,broker,env,worker:new TradingWorker({directory,broker,env})}}
+function setup(t,options={}){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'omega-worker-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const broker=new FakeBroker(),env={OMEGA_LIVE_ORDERS_ENABLED:'true',...options};return {directory,broker,env,worker:new TradingWorker({directory,broker,env,analyze:async()=>({eligible:true,side:'BUY',price:candles().at(-1)[4],atr:.44,stopPct:.6,targetNet:.1,barTime:candles().at(-1)[0],observedAt:Date.now(),expiresAt:Date.now()+10000,checks:[{label:'Injected strategy fixture',pass:true}],metrics:{},validation:{tradeCount:24,passed:true}})})}}
 const activate=w=>w.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:1});
 test('activation requires exact confirmation, server switch and strict loss cap',async t=>{
  const {worker,env}=setup(t);assert.equal(worker.status().active,false);
@@ -89,4 +89,88 @@ test('pause during a market request prevents the later entry and overlapping cyc
  await worker.cycle(); // Must resolve without queuing another slow scan.
  await worker.control({action:'pause'});release();await cycle;
  assert.equal(broker.sent.length,0);assert.equal(worker.status().active,false);
+});
+test('partial fill growth stays pending and terminal fill updates managed size',async t=>{
+ const {worker,broker}=setup(t);await activate(worker);await worker.cycle();
+ broker.orders[0].orderStatus='PartiallyFilled';broker.orders[0].cumExecQty='.03';broker.orders[0].leavesQty='.06';broker.s.positions[0].size='.03';
+ await worker.cycle();assert.equal(worker.status().pending,true);assert.equal(worker.status().active,false);assert.equal(worker.state.managed[0].qty,'.03');
+ broker.orders[0].orderStatus='Filled';broker.orders[0].cumExecQty='.09';broker.orders[0].leavesQty='0';broker.s.positions[0].size='.09';
+ await worker.cycle();assert.equal(worker.status().pending,false);assert.equal(worker.state.managed[0].qty,'.09');assert.equal(broker.sent.length,1);
+});
+test('Cancelled and PartiallyFilledCanceled entries with actual fills are managed',async t=>{
+ for(const status of ['Cancelled','PartiallyFilledCanceled']){
+  const {worker,broker}=setup(t);await activate(worker);await worker.cycle();broker.orders[0].orderStatus=status;broker.orders[0].cumExecQty='.03';broker.orders[0].leavesQty='0';broker.s.positions[0].size='.03';
+  await worker.cycle();assert.equal(worker.status().pending,false);assert.equal(worker.state.managed[0].qty,'.03');assert.equal(broker.sent.length,1);
+ }
+});
+test('an uncertain order does not bypass protective checks for a discovered fill',async t=>{
+ const {worker,broker}=setup(t);broker.timeout=true;await activate(worker);await worker.cycle();
+ const ticket=broker.sent[0].ticket;broker.s.positions=[{symbol:ticket.symbol,side:ticket.side,size:ticket.qty,markPrice:String(ticket.price),avgPrice:String(ticket.price),stopLoss:'0',takeProfit:ticket.takeProfit}];
+ await worker.cycle();await worker.cycle();assert.equal(worker.status().pending,true);assert.equal(broker.sent.filter(x=>x.close).length,1);assert.equal(worker.status().active,false);
+});
+test('positive but widened, infinite, or wrong-side protection triggers one emergency close',async t=>{
+ for(const mutate of [p=>p.stopLoss='50',p=>p.stopLoss='Infinity',p=>p.takeProfit='100']){
+  const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();mutate(broker.s.positions[0]);await worker.cycle();await worker.cycle();
+  assert.equal(broker.sent.filter(x=>x.close).length,1);assert.equal(worker.status().active,false);
+ }
+});
+test('a legitimately tightened protective stop is retained',async t=>{
+ const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();broker.s.positions[0].markPrice='109';broker.s.positions[0].stopLoss='108';await worker.cycle();
+ assert.equal(broker.sent.filter(x=>x.close).length,0);assert.equal(worker.status().managed.length,1);
+});
+test('malformed persisted limits fail closed and writes leave a private complete ledger',t=>{
+ const {worker,broker,directory,env}=setup(t),file=path.join(directory,'state.json');
+ assert.equal(fs.statSync(file).mode&0o777,0o600);assert.deepEqual(fs.readdirSync(directory),['state.json']);
+ const state=JSON.parse(fs.readFileSync(file));state.dailyLimit=null;fs.writeFileSync(file,JSON.stringify(state));
+ assert.throws(()=>new TradingWorker({directory,broker,env}),/state is invalid/);
+});
+test('order reconciliation verifies identity and a nonnegative executed quantity',async()=>{
+ const broker=new LiveBroker();broker.request=async()=>({list:[{symbol:'OTHERUSDT',side:'Buy',orderLinkId:'another-link',orderStatus:'Filled',cumExecQty:'1'}]});
+ await assert.rejects(broker.order('XRPUSDT','intended-link'),/identity/);
+ broker.request=async()=>({list:[{symbol:'XRPUSDT',side:'Buy',orderLinkId:'intended-link',orderStatus:'Filled',cumExecQty:'NaN'}]});
+ await assert.rejects(broker.order('XRPUSDT','intended-link'),/risk value/);
+});
+test('rounded live quantity targets estimated net profit using actual notional',async()=>{
+ const broker=new LiveBroker();broker.request=async(method,route)=>route.includes('instruments')?{list:[{symbol:'XRPUSDT',quoteCoin:'USDT',contractType:'LinearPerpetual',status:'Trading',lotSizeFilter:{qtyStep:'3',minOrderQty:'3',maxMktOrderQty:'100',minNotionalValue:'5'},priceFilter:{tickSize:'.0001'}}]}:{list:[{symbol:'XRPUSDT',ask1Price:'1',bid1Price:'.9999',markPrice:'1'}]};
+ const ticket=await broker.ticket('XRPUSDT','Buy',{price:1,stopPct:1,targetNet:.15});assert.equal(ticket.notional,9);
+ const gross=(Number(ticket.takeProfit)-ticket.price)*Number(ticket.qty),exitFeeIncrement=(Number(ticket.takeProfit)-ticket.price)*Number(ticket.qty)*.0006;
+ assert.ok(gross-ticket.notional*ticket.estimatedRoundTripCostRate-exitFeeIncrement>=.15-1e-9);
+ await assert.rejects(broker.ticket('XRPUSDT','Buy',{price:NaN,stopPct:1,targetNet:.15}),/execution plan/);
+});
+test('unavailable order lookup still protects a discoverable partial fill',async t=>{
+ const {worker,broker}=setup(t);await activate(worker);await worker.cycle();
+ broker.order=async()=>{throw Error('Order lookup unavailable')};broker.s.positions[0].stopLoss='0';
+ await worker.cycle();assert.equal(worker.status().active,false);assert.equal(broker.sent.filter(x=>x.close).length,1);
+});
+test('incomplete advanced evidence blocks entry without falling back to a simple strategy',async t=>{
+ const {worker,broker}=setup(t);worker.analyze=async()=>({eligible:false,side:'BUY',reason:'Order-book evidence missing',checks:[{label:'Fresh executable depth',pass:false}]});
+ await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.equal(worker.status().active,true);assert.match(worker.status().decisions[0].reason,/missing/);
+});
+test('an expired decision cannot submit a new live order',async t=>{
+ const {worker,broker}=setup(t),analyze=worker.analyze;worker.analyze=async symbol=>({...await analyze(symbol),expiresAt:Date.now()-1});
+ await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.equal(worker.status().active,false);assert.match(worker.status().message,/expired/);
+});
+test('liquid markets are deeply analyzed even without a 24h directional watch label',async t=>{
+ const {worker,broker}=setup(t),markets=broker.markets.bind(broker);broker.markets=async()=>{const rows=await markets();rows[0].price24hPcnt='0';return rows};
+ await activate(worker);await worker.cycle();assert.equal(broker.sent.length,1);assert.equal(worker.status().coverage.checked,1);
+});
+test('a second same-direction strongly correlated position is blocked',async t=>{
+ const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();
+ const markets=broker.markets.bind(broker),analyze=worker.analyze;
+ broker.markets=async()=>{const rows=await markets();rows[0].symbol='ALTUSDT';return rows};
+ worker.analyze=async symbol=>({...await analyze(symbol),metrics:{benchmarkCorrelation:.95}});
+ await worker.cycle();assert.equal(broker.sent.length,1);assert.match(worker.status().decisions[0].reason,/concentration/);
+});
+test('an expired holding period submits one recorded reduce-only close even when new entries are paused',async t=>{
+ const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();
+ worker.state.managed[0].openedAt=Date.now()-31*60000;await worker.control({action:'pause'});
+ await worker.cycle();await worker.cycle();assert.equal(broker.sent.filter(x=>x.close).length,1);assert.equal(worker.status().active,false);
+});
+test('terminal partially-filled cancellation is not an outstanding entry order',async()=>{
+ const broker=new LiveBroker();broker.request=async(method,route)=>{
+  if(route.includes('wallet'))return {list:[{accountType:'UNIFIED',totalEquity:'100',totalAvailableBalance:'100'}]};
+  if(route.includes('realtime'))return {list:[{orderStatus:'PartiallyFilledCanceled',reduceOnly:false}]};
+  return {list:[]};
+ };
+ const s=await broker.snapshot();assert.equal(s.pending.length,0);
 });

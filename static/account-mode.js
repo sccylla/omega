@@ -17,6 +17,11 @@
   $('real-worker-message').textContent=d.message;
   $('real-start').disabled=working||!d.configured||!d.serverEnabled||d.pending||d.active;
   $('real-pause').disabled=working||!d.active;
+  const decisions=$('real-decision-rows');if(decisions){decisions.replaceChildren();
+   for(const plan of d.decisions||[]){const row=document.createElement('div'),name=document.createElement('strong'),why=document.createElement('p');row.className='real-decision';name.textContent=plan.symbol+' / '+plan.decision;why.textContent=plan.reason;row.append(name,why);decisions.append(row)}
+   if(!d.decisions?.length)decisions.textContent='No live entry analysis yet. The worker remains paused until explicitly activated.';
+   if(d.coverage)$('real-decision-coverage').textContent=d.coverage.checked+' analyzed in depth / '+d.coverage.liquidMarkets+' liquid / '+d.coverage.snapshotMarkets+' in public snapshot';
+  }
   const list=$('real-worker-events');list.replaceChildren();
   for(const e of d.events||[]){const row=document.createElement('div'),time=document.createElement('small'),text=document.createElement('p');time.textContent=new Date(e.at).toLocaleTimeString();text.textContent=e.message;row.append(time,text);list.append(row)}
   $('account-mode-label').textContent=mode==='real'?(d.active?'LIVE / ARMED':'LIVE / PAUSED'):(d.active?'LIVE BOT ARMED':'SIMULATED');

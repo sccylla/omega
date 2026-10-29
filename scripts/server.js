@@ -16,7 +16,7 @@ const worker=new TradingWorker({directory});
 setController(worker);
 const timer=setInterval(()=>worker.cycle(),15000);
 const config = require(path.join(root, 'vercel.json'));
-const apis = new Set(['market','demo','quant','intelligence','forex-demo','scanner','live','bot']);
+const apis = new Set(['market','demo','quant','intelligence','forex-demo','scanner','live','bot','decision','quote']);
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
 const server = http.createServer(async (req, res) => {
   res.status = code => { res.statusCode = code; return res; };

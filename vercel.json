@@ -24,6 +24,12 @@
     },
     "api/live.js": {
       "maxDuration": 20
+    },
+    "api/decision.js": {
+      "maxDuration": 25
+    },
+    "api/quote.js": {
+      "maxDuration": 15
     }
   },
   "headers": [

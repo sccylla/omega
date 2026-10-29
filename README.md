@@ -1,4 +1,4 @@
-# OMEGA TRADER v10 — Selective autopilot
+# OMEGA TRADER v11 — Evidence-driven autopilot
 
 A compact trading desk with browser demo trading and separately activated **Bybit USDT perpetual live automation**. The Demo / Real account switch is always visible. Switching accounts pauses new demo entries; switching the view does not activate or stop the server-side live worker.
 
@@ -21,15 +21,34 @@ The existing README command `node --test tests/*.test.js` is also supported. Per
 
 ## What the bot checks
 
-- At least 70 consecutive valid 5-minute candles; only completed candles inform decisions. Stale, missing or inconsistent candles block entries.
-- $10M+ daily turnover, spread at most 8 basis points, and funding within ±0.06%.
-- Matching 5-minute momentum/trend and completed 15-minute trend, confirmed volume, manageable ATR volatility, and no entry more than 2 ATR from the fast moving average.
-- $10 target notional, at most two positions, no duplicate market, no repeated entry on the same market/side/candle. No martingale or averaging down.
-- ATR-sized stop, a net profit target of 1.5 times modeled price-stop risk, with estimated execution costs added to the target. Demo positions also use an adaptive profit trail/reversal exit. Stops can close losing trades.
+Automatic entries now use the same server-side `lib/advanced-decision.js` engine in browser demo mode and the persistent live worker. The older two-timeframe helper is retained for arithmetic/legacy tests, not as an automatic-entry fallback. There is no language-model “maximum intelligence” setting: decisions are explicit, testable rules over the data actually obtained.
 
-The demo account starts with $10,000 virtual funds. Automation starts paused on every page load; it runs only while the page is visible. The browser uses tab locks and shared-account transactions to prevent competing tabs from opening duplicate entries. Automatic entries need a modern browser with Web Locks (HTTPS or loopback). It pauses entries after three consecutive losses during the current UTC day, and retains the 2% daily equity loss and 0.25% estimated per-trade risk checks. Demo P/L estimates fees plus adverse spread/slippage assumptions; real fills differ.
+The public collector reads Bybit market data only:
 
-The results panel shows **observed auto-demo** outcomes, sample size and average net result, from the retained account history (up to 100 recent account trades). It excludes manual trades and legacy records without an auto flag. An early 100% result is not evidence of a dependable strategy. The Research backtests evaluate the existing research model, **not the new autopilot's validated future performance**. No high win rate or profit is promised. These rules have not been validated on live or independent historical exchange data during this change.
+| Evidence | Use |
+| --- | --- |
+| 5m, 15m, 1h and 4h OHLCV | Trend agreement, RSI/MACD momentum, ADX regime, ATR volatility, volume and VWAP |
+| Order book, ticker and quantity/price filters | Spread, $10 execution depth/impact, exchange minimums and coherent prices |
+| Open-interest history | Participation and excessive expansion/unwinding checks |
+| Funding history and next funding time | Crowding and imminent funding-cost checks |
+| Bitcoin candles | Broad-market shocks, opposing moves and correlated exposure |
+| Earlier price history | Direction-specific, chronological, next-open, non-overlapping historical sanity check |
+
+A complete snapshot requires ten evidence streams (BTC reuses its own candles as benchmark), fresh response timestamps, contiguous valid candles and an active USDT perpetual. Failed, stale or inconsistent sources produce **WAIT**. Missing data is never fabricated and there is no fallback to candle-only automatic entries.
+
+The price-only historical check uses the later 40% of the fetched 5m history, as-of completed higher timeframes, at least 20 trades in the proposed direction, conservative stop-first handling when a bar touches both levels, and positive cost-adjusted expectancy/profit factor. It stresses costs at the greater of 26 basis points round trip or the current modeled round-trip execution costs. Current order books, open interest and funding history are **not injected into historical decisions**. This short, fixed-rule sanity check is not a complete backtest of execution, a calibrated probability, independent validation across market regimes, or a guarantee. Insufficient samples block entry.
+
+The broad scan screens the full available ticker/instrument snapshot. Expensive deep analysis is bounded: browser scans retain core liquid candidates plus a rotating group (up to six); worker scans use up to eight. It does not ingest every trade, every exchange, historical order books, news, macro calendars, off-exchange liquidity, on-chain data or unknown future events. An “all market data” or “no losses” claim would be false.
+
+New evidence-policy positions use stop/target exits and a 30-minute maximum hold in both modes; time exits can realize a loss. The historical price check uses the same maximum holding window, but remains an execution approximation. Legacy demo positions retain their former adaptive exits. Demo entries use the inspected executable book price, and exits require fresh bid/ask liquidation quotes rather than a stale candle close.
+
+Entry plans keep a $10 target notional, at most two positions, no duplicate market or repeated market/side/candle entry, no averaging down or martingale, ATR-sized stops and automatic net-profit exits. Modeled costs include fees, observed spread/impact, slippage allowance and adverse funding; fills may be worse. Concentration checks compare signed Bitcoin exposure (trade direction × measured correlation), including inverse correlations; a second position is blocked if held or new correlation is unknown. Decisions expire after 10 seconds; live orders recheck current quotes, account risk and expiry before submission.
+
+Use **Analyze only** to inspect a supported market without opening an order. **Scan without trading** evaluates the bounded shortlist without creating an entry. The evidence panel shows every passed/failed gate, source time, cost estimate and historical sample. The live worker exposes its latest entry decisions in its authenticated journal.
+
+The demo account starts with $10,000 virtual funds. Automation starts paused on every page load and runs only while the page is visible. Browser tab locks prevent competing account mutations. Demo entries pause after three consecutive losses on the current UTC day and retain the 2% daily equity-loss and 0.25% estimated per-trade stop-risk checks. The results panel reports actual closed simulated auto trades and sample size, excluding manual/legacy records without an auto flag. Research-page model backtests remain separate from this engine's limited price-only check.
+
+Losses remain possible. More indicators and stricter checks do not establish a higher win rate or positive future returns. Verification for this upgrade uses deterministic fixtures and a simulated broker; real market feeds are still blocked by this cloud environment's network policy, and no real account was activated or traded.
 
 ## Live worker: deploy and activate explicitly
 
@@ -53,9 +72,9 @@ Sign in over HTTPS, switch to **Real account**, review the actual broker balance
 The worker:
 
 - Sets 1x leverage and rounds entry size down to the $10 estimated notional budget using current exchange quantity steps. Skips instruments whose minimums cannot fit. Market fills and actual notional can differ within the exchange's slippage handling.
-- Attaches exchange-managed stop-loss and take-profit orders to every entry, so exits do not depend on the browser. Reconciles fills and confirms protective levels; missing protection triggers a recorded reduce-only emergency close attempt. Verify emergency closes at Bybit: acceptance does not prove a fill.
+- Attaches exchange-managed stop-loss and take-profit orders to every entry, so exits do not depend on the browser. Reconciles fills and confirms finite, correctly directed, non-widened protective levels; missing protection triggers a recorded reduce-only emergency close attempt. Verify emergency closes at Bybit: acceptance does not prove a fill.
 - Uses all-account positions, available margin and realized/unrealized losses for risk checks. Rejects incomplete/paginated snapshots and unmanaged exposure. Bounds modeled stop risk to 0.25% of equity and remaining daily budget, including existing position risk.
-- Persists intent **before** submitting each order. Timeouts pause entries; later cycles reconcile that order using its unique broker link. It never blindly retries an uncertain entry or emergency close.
+- Fsyncs an atomic, private ledger **before** submitting each order. It reconciles partial fills through a terminal order state and checks protection even when the order lookup fails. Timeouts pause entries; later cycles reconcile that order using its unique broker link. It never blindly retries an uncertain entry or emergency close.
 - Disarms on restart, risk/data failures, or the loss budget. Daily entry checks use the smaller of the configured dollar budget and 2% of the day's starting equity; losses may exceed these thresholds during gaps, slippage, service outages or stop failures.
 - **Pause new live entries** stops subsequent submissions while preserving broker TP/SL. A request already in flight may still fill. To flatten or cancel orders, use Bybit directly. Pausing or closing this website does not cancel broker positions. Turning off the server switch also blocks new entries; the worker still attempts reconciliation/protection for its recorded positions.
 

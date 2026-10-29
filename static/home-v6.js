@@ -73,7 +73,13 @@ async function quotesRefresh(){
    const data=await response.json();if(!response.ok||!data.candles?.length)throw Error(data.error||'Public feed unavailable');
    const closed=data.candles.filter(x=>x[0]+300000<=Date.now());const c=closed.at(-1);
    if(!c||Date.now()-(c[0]+300000)>360000)throw Error('Candle too old');
-   return {sym,quote:Number(c[4]),candles:closed.slice(-80),time:Date.now()};
+   let quote=Number(c[4]);const position=account.positions.find(p=>p.symbol===sym);
+   if(position?.entryEvidence?.strategy==='evidence-v11'){
+    const current=await window.OmegaDecision.quote(sym);
+    if(current.observedAt<position.openedAt-1000)throw Error('Exit quote predates the position');
+    quote=position.side==='BUY'?current.bid:current.ask;
+   }
+   return {sym,quote,candles:closed.slice(-80),time:Date.now()};
   }catch(err){return {sym,error:err.message}}
  }));
  for(const r of all){if(r.error){delete quotes[r.sym];delete latestTime[r.sym]}else{quotes[r.sym]=r.quote;series[r.sym]=r.candles;latestTime[r.sym]=r.time}}

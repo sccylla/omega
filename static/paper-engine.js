@@ -36,11 +36,12 @@
   const slip=Number(ticket.slippageBps||0);
   if(!Number.isFinite(slip)||slip<0||slip>50)throw Error('Invalid execution-cost assumption.');
   if(ticket.targetNet!==undefined&&(!Number.isFinite(ticket.targetNet)||ticket.targetNet<=0))throw Error('Invalid net profit target.');
+  if(ticket.maximumHoldMinutes!==undefined&&(!Number.isFinite(ticket.maximumHoldMinutes)||ticket.maximumHoldMinutes<=0||ticket.maximumHoldMinutes>60))throw Error('Invalid holding limit.');
   const fill=quotes?.[ticket.symbol]*(1+(ticket.side==='BUY'?1:-1)*slip/10000);
   const prev=entryPreview(s,{...quotes,[ticket.symbol]:fill},ticket,now);
   if(day(now)!==s.day){s={...s,day:day(now),dayStartEquity:equity(s,quotes)};}
   const id='paper-'+now+'-'+Math.random().toString(36).slice(2,8);
-  const position={id,symbol:prev.symbol,side:prev.side,entry:prev.price,qty:prev.qty,notional:prev.notional,entryFee:prev.fee,stop:prev.stop,target:prev.target,openedAt:now,auto:!!ticket.auto,autoAtr:ticket.auto&&Number.isFinite(ticket.atr)&&ticket.atr>0?ticket.atr:undefined,autoTrailArmed:false,autoBest:prev.price,slippageBps:slip,targetNet:ticket.auto?ticket.targetNet:undefined};
+  const position={id,symbol:prev.symbol,side:prev.side,entry:prev.price,qty:prev.qty,notional:prev.notional,entryFee:prev.fee,stop:prev.stop,target:prev.target,openedAt:now,auto:!!ticket.auto,autoAtr:ticket.auto&&Number.isFinite(ticket.atr)&&ticket.atr>0?ticket.atr:undefined,autoTrailArmed:false,autoBest:prev.price,slippageBps:slip,targetNet:ticket.auto?ticket.targetNet:undefined,entryEvidence:ticket.entryEvidence,maximumHoldMinutes:ticket.maximumHoldMinutes};
   return {...s,cash:s.cash-prev.fee,positions:[...s.positions,position]};
  }
  function close(s,id,price,reason='Manual close',now=Date.now()){
@@ -50,7 +51,7 @@
   price*=1-(p.side==='BUY'?1:-1)*(p.slippageBps||0)/10000;
   const exitFee=p.qty*price*FEE_RATE;
   const net=markPnl(p,price)-exitFee-p.entryFee;
-  const record={id:p.id,symbol:p.symbol,side:p.side,entry:p.entry,exit:price,notional:p.notional,auto:!!p.auto,net:round(net),netRaw:net,reason,openedAt:p.openedAt,closedAt:now};
+  const record={id:p.id,symbol:p.symbol,side:p.side,entry:p.entry,exit:price,notional:p.notional,auto:!!p.auto,entryEvidence:p.entryEvidence,net:round(net),netRaw:net,reason,openedAt:p.openedAt,closedAt:now};
   return {...s,cash:s.cash+markPnl(p,price)-exitFee,positions:s.positions.filter(x=>x.id!==id),closed:[record,...s.closed].slice(0,100)};
  }
  function applyQuote(s,quotes,now=Date.now(),market={}){
@@ -58,7 +59,8 @@
   for(const original of s.positions){
    const price=quotes?.[original.symbol];if(!Number.isFinite(price)||price<=0)continue;
    let p=original;
-   if(p.auto){
+   const evidencePolicy=p.entryEvidence?.strategy==='evidence-v11';
+   if(p.auto&&!evidencePolicy){
     const info=market?.[p.symbol]||{};
     const a=Number.isFinite(info.atr)&&info.atr>0?info.atr:p.autoAtr;
     if(Number.isFinite(a)&&a>0){
@@ -84,9 +86,10 @@
    const fill=price*(1-(p.side==='BUY'?1:-1)*(p.slippageBps||0)/10000);
    const exitNet=markPnl(p,fill)-p.entryFee-p.qty*fill*FEE_RATE;
    const profitTarget=p.auto&&Number.isFinite(p.targetNet)&&exitNet>=p.targetNet;
-   const reversal=!!(p.auto&&p.autoTrailArmed&&market?.[p.symbol]?.reversal&&exitNet>0);
-   if(stopped||hitManualTarget||reversal||profitTarget){
-    const reason=stopped?(p.auto&&p.autoTrailArmed?'Adaptive profit trail (sampled quote)':'Stop simulated'):profitTarget?'Net profit target (after estimated costs)':reversal?'Profitable trend reversal (sampled quote)':'Target simulated';
+   const timeExit=Number.isFinite(p.maximumHoldMinutes)&&now-p.openedAt>=p.maximumHoldMinutes*60000;
+   const reversal=!!(!evidencePolicy&&p.auto&&p.autoTrailArmed&&market?.[p.symbol]?.reversal&&exitNet>0);
+   if(stopped||hitManualTarget||reversal||profitTarget||timeExit){
+    const reason=stopped?(p.auto&&p.autoTrailArmed?'Adaptive profit trail (sampled quote)':'Stop simulated'):profitTarget?'Net profit target (after estimated costs)':timeExit?'30-minute holding limit (sampled quote)':reversal?'Profitable trend reversal (sampled quote)':'Target simulated';
     out=close(out,p.id,price,reason,now);
    }
   }
