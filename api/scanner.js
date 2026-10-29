@@ -7,7 +7,7 @@ async function futures(){
  let list=[],cursor='',pages=0;
  do{let qs=new URLSearchParams({category:'linear',limit:'1000',status:'Trading'});if(cursor)qs.set('cursor',cursor);let p=await pub('/v5/market/instruments-info?'+qs);list.push(...(p.list||[]));cursor=p.nextPageCursor||'';pages++;}while(cursor&&pages<10);
  if(cursor)throw Error('Market instruments pagination incomplete; try again');
- const active=new Set(list.filter(x=>x.status==='Trading'&&x.quoteCoin==='USDT').map(x=>x.symbol));
+ const active=new Set(list.filter(x=>x.status==='Trading'&&x.quoteCoin==='USDT'&&x.contractType==='LinearPerpetual').map(x=>x.symbol));
  const rows=(ticker.list||[]).filter(x=>active.has(x.symbol)).map(scanner.futuresScreen).filter(Boolean);
  rows.sort((a,b)=>Math.max(b.buyScore,b.sellScore)-Math.max(a.buyScore,a.sellScore)||b.turnover24h-a.turnover24h);
  return {mode:'PUBLIC_RESEARCH_ONLY',market:'futures',universe:rows.length,source:'BYBIT V5 TICKERS + TRADEABLE INSTRUMENTS',evaluatedWithHistory:0,coverage:'FULL SNAPSHOT UNIVERSE; historical model only on selected asset',timestamp:Date.now(),rows};

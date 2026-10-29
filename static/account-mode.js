@@ -41,6 +41,7 @@
  }
  $('live-running-banner').addEventListener('click',()=>select('real'));
  document.querySelectorAll('[data-account-mode]').forEach(b=>b.addEventListener('click',()=>select(b.dataset.accountMode)));
+ window.addEventListener('omega:live-scan',async()=>{if(!worker?.active){$('real-worker-message').textContent='Activate real trading explicitly below before Trade can submit an order.';return}try{showWorker(await api('/api/bot',{action:'scan'}))}catch(e){$('real-worker-message').textContent=e.message}});
  $('real-refresh').addEventListener('click',refresh);
  $('real-activate-form').addEventListener('submit',async e=>{
   e.preventDefault();if(working||!worker||!worker.configured||!worker.serverEnabled)return;

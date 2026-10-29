@@ -12,7 +12,7 @@ class FakeBroker{
  async order(symbol,link){return this.orders.find(x=>x.orderLinkId===link)||null}
  async close(position,link){this.sent.push({close:true,link})}
 }
-function setup(t,options={}){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'omega-worker-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const broker=new FakeBroker(),env={OMEGA_LIVE_ORDERS_ENABLED:'true',...options};return {directory,broker,env,worker:new TradingWorker({directory,broker,env,analyze:async()=>({eligible:true,side:'BUY',price:candles().at(-1)[4],atr:.44,stopPct:.6,targetNet:.1,barTime:candles().at(-1)[0],observedAt:Date.now(),expiresAt:Date.now()+10000,checks:[{label:'Injected strategy fixture',pass:true}],metrics:{},validation:{tradeCount:24,passed:true}})})}}
+function setup(t,options={}){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'omega-worker-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const broker=new FakeBroker(),env={OMEGA_LIVE_ORDERS_ENABLED:'true',...options};return {directory,broker,env,worker:new TradingWorker({directory,broker,env,analyze:async()=>({eligible:true,rank:10,side:'BUY',price:candles().at(-1)[4],atr:.44,stopPct:.6,targetNet:.1,barTime:candles().at(-1)[0],observedAt:Date.now(),expiresAt:Date.now()+10000,checks:[{label:'Injected strategy fixture',pass:true}],metrics:{},validation:{tradeCount:24,passed:true}})})}}
 const activate=w=>w.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:1});
 test('activation requires exact confirmation, server switch and strict loss cap',async t=>{
  const {worker,env}=setup(t);assert.equal(worker.status().active,false);
@@ -20,10 +20,10 @@ test('activation requires exact confirmation, server switch and strict loss cap'
  await assert.rejects(worker.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:100}),/Daily loss/);
  env.OMEGA_LIVE_ORDERS_ENABLED='false';await assert.rejects(activate(worker),/switch/);
 });
-test('a successful live entry is reconciled and cannot reopen on the same candle',async t=>{
+test('a live entry is reconciled and may reenter after closing without a candle cooldown',async t=>{
  const {worker,broker}=setup(t);await activate(worker);await worker.cycle();assert.equal(broker.sent.length,1);assert.equal(worker.status().pending,true);
  await worker.cycle();assert.equal(worker.status().pending,false);assert.equal(worker.status().managed.length,1);
- broker.s.positions=[];await worker.cycle();assert.equal(worker.status().managed.length,0);assert.equal(broker.sent.length,1);
+ broker.s.positions=[];await worker.cycle();assert.equal(worker.status().managed.length,0);assert.equal(broker.sent.length,2);
 });
 test('ambiguous entry survives restart without resubmitting',async t=>{
  const {worker,broker,env,directory}=setup(t);broker.timeout=true;await activate(worker);await worker.cycle();assert.equal(broker.sent.length,1);assert.equal(worker.status().active,false);
@@ -159,7 +159,7 @@ test('a second same-direction strongly correlated position is blocked',async t=>
  const markets=broker.markets.bind(broker),analyze=worker.analyze;
  broker.markets=async()=>{const rows=await markets();rows[0].symbol='ALTUSDT';return rows};
  worker.analyze=async symbol=>({...await analyze(symbol),metrics:{benchmarkCorrelation:.95}});
- await worker.cycle();assert.equal(broker.sent.length,1);assert.match(worker.status().decisions[0].reason,/concentration/);
+ await worker.cycle();assert.equal(broker.sent.length,1);assert.equal(worker.status().coverage.complete,true);
 });
 test('old saved holding limits never trigger a live close while profit/stop protection remains active',async t=>{
  const {worker,broker}=setup(t);await activate(worker);await worker.cycle();await worker.cycle();
@@ -173,4 +173,10 @@ test('terminal partially-filled cancellation is not an outstanding entry order',
   return {list:[]};
  };
  const s=await broker.snapshot();assert.equal(s.pending.length,0);
+});
+test('live worker scans past the first eight pairs and enters the highest-ranked qualified market',async t=>{
+ const {worker,broker}=setup(t),oldMarkets=broker.markets.bind(broker),analyze=worker.analyze;
+ broker.markets=async()=>{const [r]=await oldMarkets();return Array.from({length:12},(_,i)=>({...r,symbol:'PAIR'+i+'USDT'}))};
+ worker.analyze=async symbol=>({...await analyze(symbol),rank:Number(symbol.match(/\d+/)[0])});
+ await activate(worker);await worker.cycle();assert.equal(broker.sent[0].ticket.symbol,'PAIR11USDT');assert.equal(worker.status().coverage.checked,12);
 });
