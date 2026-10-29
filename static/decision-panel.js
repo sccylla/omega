@@ -14,7 +14,7 @@
   $('decision-check-count').textContent=checks.filter(x=>x.pass).length+' / '+checks.length+' checks passed';
   const v=plan.validation||{},m=plan.metrics||{};
   const samples=v.trades??v.tradeCount??v.sampleCount;
-  $('decision-validation').textContent=Number.isFinite(samples)?samples+' historical price-only trades':'Historical evidence unavailable';
+  $('decision-validation').textContent=Number.isFinite(samples)?samples+' / '+(v.minimumTrades??20)+' required historical price-only trades'+(v.unresolvedTrades?' · '+v.unresolvedTrades+' unresolved':'')+(v.passed===false?' · '+(v.reason||'validation failed'):''):'Historical evidence unavailable';
   $('decision-cost').textContent=money(m.estimatedRoundTripCostUsd??m.roundTripCostUsd);
   const stamp=plan.observedAt||plan.coverage?.observedAt;
   $('decision-observed').textContent=stamp?'Snapshot '+new Date(stamp).toLocaleTimeString():'Snapshot time unavailable';

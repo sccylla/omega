@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),{scanMarkets}=require('../static/market-selection');
+const test=require('node:test'),assert=require('node:assert/strict'),{scanMarkets,summarize,explain}=require('../static/market-selection');
 const row=symbol=>({symbol,turnover24h:1e8,spreadBps:1});
 test('all pairs are considered and the highest-ranked qualifying market beyond the old shortlist wins',async()=>{
  const rows=Array.from({length:20},(_,i)=>row('PAIR'+i+'USDT')),calls=[];
@@ -26,4 +26,17 @@ test('full scans bound concurrency and do not impose per-symbol cooldowns betwee
  let active=0,peak=0,calls=0;const rows=Array.from({length:10},(_,i)=>row('P'+i+'USDT'));
  const analyze=async()=>{calls++;active++;peak=Math.max(peak,active);await new Promise(resolve=>setTimeout(resolve,1));active--;return {eligible:true,side:'BUY',rank:1}};
  await scanMarkets(rows,{analyze});await scanMarkets(rows,{analyze});assert.equal(calls,20);assert.equal(peak,2);
+});
+test('no-entry diagnostics distinguish feed failures, historical rejection and portfolio blocking',async()=>{
+ const results=[
+  {eligible:false,reason:'First failure',checks:[{label:'Required data feeds responded',pass:false,detail:'book: NETWORK_UNAVAILABLE'},{label:'Historical evidence',pass:false,detail:'Insufficient closed holdout trades'}]},
+  {eligible:false,reason:'Another failure',checks:[{label:'Historical evidence',pass:false,detail:'Insufficient closed holdout trades'}]},
+  {eligible:false,reason:'Market evidence unavailable',checks:[]}
+ ];
+ const summary=summarize(results);assert.equal(summary.available,0);assert.equal(summary.blockers[0].count,2);
+ assert.match(explain(summary),/2 pair\(s\): Historical evidence: Insufficient closed holdout trades/);
+ assert.match(explain(summary),/book: NETWORK_UNAVAILABLE/);assert.match(explain(summary),/Market evidence unavailable/);
+ const blocked=await scanMarkets([row('HELDUSDT')],{analyze:async()=>({eligible:true,side:'BUY',rank:100}),canEnter:()=>false});
+ assert.equal(blocked.summary.qualified,1);assert.equal(blocked.summary.accountBlocked,1);assert.equal(blocked.picks.length,0);
+ assert.match(explain(blocked.summary),/existing positions or portfolio concentration/);
 });

@@ -4,9 +4,9 @@
  if(!E||!S||!T||!A||!window.OmegaDecision||!$('auto-toggle'))return;
  // Starting a fresh page always requires an explicit start. Never restore an armed bot.
  let running=false,busy=false,managing=false;
- const status=s=>$('auto-message').textContent=s;
+ const status=(s,state)=>{$('auto-message').textContent=s;if(state)$('auto-state').textContent=state};
  function controls(){
-  $('auto-state').textContent=running?'SCANNING':'OFF';
+  $('auto-state').textContent=running?'READY':'OFF';
   $('auto-toggle').textContent=running?'Stop automatic entries':'Trade · scan all & enter $10';
   $('auto-toggle').classList.toggle('is-running',running);
  }
@@ -40,18 +40,18 @@
   try{
    if(permitEntries)await manage();
    if(permitEntries&&(!running||document.body.dataset.account==='real'))return;
-   if(permitEntries&&A.read().positions.length>=E.MAX_POSITIONS){status('Position limit reached. Existing trades remain managed; no new exposure.');return}
-   status('Gathering four timeframes, depth, derivatives and historical price evidence…');
+   if(permitEntries&&A.read().positions.length>=E.MAX_POSITIONS){status('Position limit reached. Existing trades remain managed; no new exposure.','MANAGING');return}
+   status('Gathering four timeframes, depth, derivatives and historical price evidence…','SCANNING');
    const response=await fetch('/api/scanner?market=futures&page=1&size=15',{cache:'no-store'}),data=await response.json();
    if(!response.ok)throw Error(data.error||'Market scanner unavailable');
    $('auto-universe').textContent=Number(data.universe||0).toLocaleString();
-   const {results,picks,coverage}=await window.OmegaSelection.scanMarkets(data.rows||[],{
+   const {results,picks,coverage,summary}=await window.OmegaSelection.scanMarkets(data.rows||[],{
     analyze:window.OmegaDecision.analyze,
     isCancelled:()=>permitEntries&&(!running||document.body.dataset.account==='real'),
     canEnter:p=>{const a=A.read();return !a.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,''))&&!window.OmegaPortfolio.concentrated(p.side,p.metrics?.benchmarkCorrelation,a.positions)},
     onProgress:c=>status('Scanning all markets: '+c.checked+' / '+c.total+' screened · '+c.analyzed+' deep analyses · '+c.rejected+' rejected for liquidity/spread')
    });
-   if(!coverage.complete){status('Scan stopped. No new trade submitted.');return}
+   if(!coverage.complete){status('Scan stopped. No new trade submitted.','OFF');return}
    const list=$('auto-shortlist');list.replaceChildren();
    for(const result of [...picks,...results.filter(x=>!picks.includes(x))].slice(0,5)){
     const row=document.createElement('div');row.className='decision-row';
@@ -62,8 +62,8 @@
    if(!results.length)list.textContent='No market qualifies for a closer look. Waiting is a decision.';
    $('auto-choice').textContent=picks.length?picks[0].symbol+' '+picks[0].side:'WAIT';
    if(results.length)window.OmegaDecision.render(picks[0]||results[0],(picks[0]||results[0]).symbol);
-   if(!picks.length){status('Waiting. No setup passed every evidence and cost check. '+coverage.analyzed+' analyzed in depth / '+coverage.checked+' screened.');return}
-   if(!permitEntries){status('Analysis complete: '+picks.length+' candidate(s). Read-only scan placed no trades.');return}
+   if(!picks.length){status((permitEntries?'No entry. ':'Scan only; trading is disabled for this scan. ')+window.OmegaSelection.explain(summary)+' '+coverage.analyzed+' analyzed in depth / '+coverage.checked+' screened.',permitEntries?'NO ENTRY':'SCAN ONLY');return}
+   if(!permitEntries){status('Analysis complete: '+picks.length+' candidate(s). Scan without trading never places orders; press Trade to enable automatic entries.','SCAN ONLY');return}
    const account=A.read();
    const candidate=picks.find(p=>!account.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,'')));
    if(!candidate)throw Error('No qualifying unheld market is available.');
@@ -81,10 +81,10 @@
     if(!Number.isFinite(pick.observedAt)||Date.now()-pick.observedAt>10000||!Number.isFinite(pick.expiresAt)||Date.now()>pick.expiresAt||pick.observedAt>Date.now()+1000||Date.now()-(pick.barTime+300000)>360000)throw Error('Setup expired during scanning.');
     if(window.OmegaPortfolio.concentrated(pick.side,pick.metrics?.benchmarkCorrelation,a.positions))throw Error('Portfolio concentration: correlated exposure or unknown correlation blocks another position.');
     const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:10,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet:pick.targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null}});
-    status('Opened $10 virtual '+pick.side+' '+symbol+'. Net profit target $'+pick.targetNet.toFixed(2)+'; protective stop active while this page is open.');
+    status('Opened $10 virtual '+pick.side+' '+symbol+'. Net profit target $'+pick.targetNet.toFixed(2)+'; protective stop active while this page is open.','TRADE OPEN');
     return next;
    },{requireLock:true});
-  }catch(e){status(e.message||'No trade: data unavailable.')}finally{busy=false;stats()}
+  }catch(e){status(e.message||'No trade: data unavailable.','ENTRY BLOCKED')}finally{busy=false;stats()}
  }
  $('auto-toggle').addEventListener('click',()=>{running=!running;controls();status(running?'Autopilot started. It may wait for a qualified setup.':'New entries paused. Open demo positions are still monitored while this page is visible.');if(running)cycle(true)});
  document.querySelector('[data-view="demo"]')?.addEventListener('click',()=>{if(document.body.dataset.account==='real'){window.dispatchEvent(new Event('omega:live-scan'));return}if(busy){status('Full-market scan already running; progress is shown below.');return}running=true;controls();cycle(true)});
