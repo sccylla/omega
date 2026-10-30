@@ -66,7 +66,7 @@ test('virtual scalps use executable VWAP, not midprice, and close after net $0.5
  const start=S.step(S.init(),{signals:[o],quotes:{[symbol]:q},now:current+100,connected:true});
  assert.equal(start.events[0].type,'OPEN');
  assert.ok(start.state.open.entry>=q.ask);
- const nextTime=current+SECOND,downBook=makeBook(symbol,nextTime,103.8,101),upBook=makeBook(symbol,nextTime,105.3,102);
+ const nextTime=current+SECOND,downBook=makeBook(symbol,nextTime,99.0,101),upBook=makeBook(symbol,nextTime,105.3,102);
  const other=E.create([symbol]);other.ingest(upBook,nextTime);
  const settled=S.step(start.state,{signals:[],quotes:{[symbol]:other.execution(symbol,nextTime)},now:nextTime,connected:true});
  assert.equal(settled.events[0].type,'CLOSED');

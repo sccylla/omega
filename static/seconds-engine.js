@@ -43,18 +43,19 @@
     return true;
    }
    if(!Array.isArray(data)||data.length>1024)return false;
+   let accepted=0;
    for(const trade of data){
     if(trade.s!==record.symbol||!['Buy','Sell'].includes(trade.S)||trade.BT===true||trade.RPI===true)continue;
     const t=Number(trade.T),price=Number(trade.p),qty=Number(trade.v),id=String(trade.i||'');
     if(!finite(t)||t<=0||t>now+2500||now-t>5500||!finite(price)||price<=0||!finite(qty)||qty<=0||!id||id.length>180||record.tradeIds.has(id))continue;
     record.trades.push({t,usd:price*qty,dir:trade.S==='Buy'?1:-1,id});
-    record.tradeIds.add(id);record.tradeTime=Math.max(record.tradeTime,t);
+    record.tradeIds.add(id);record.tradeTime=Math.max(record.tradeTime,t);accepted++;
    }
    const cutoff=now-42000;
    while(record.trades.length&&(record.trades[0].t<cutoff||record.trades.length>5500)){
     const removed=record.trades.shift();record.tradeIds.delete(removed.id);
    }
-   return true;
+   return accepted>0;
   }
   const levels=(r,side)=>[...(side==='bid'?r.bids:r.asks).entries()].sort((a,b)=>side==='bid'?b[0]-a[0]:a[0]-b[0]).slice(0,50);
   function fill(levelsWanted,notional){
