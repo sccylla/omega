@@ -1,0 +1,25 @@
+name: Omega demo scalper regressions
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/demo-scalper-*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run deterministic Node regression tests
+        run: node --test tests/*.test.js
