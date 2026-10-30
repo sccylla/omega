@@ -13,3 +13,8 @@
 .seconds-shadow-line strong{color:#e6f7ee}
 .seconds-shadow-line span{color:#aac0ca;font-size:12px}
 @media(max-width:760px){.seconds-lab{padding:14px}.seconds-controls input,.seconds-controls button{width:100%}.seconds-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.seconds-demo-notice{background:#122e36;border:1px solid #467168;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:12px;color:#cce4e7;line-height:1.6}
+.seconds-demo-notice strong{color:#94ebca}
+.demo-v6 .seconds-lab{margin:20px 0}
+.demo-v6 .seconds-lab h3{font-size:14px;color:#e5f8fa;margin:16px 0 10px}
