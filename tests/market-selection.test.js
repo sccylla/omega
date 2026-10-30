@@ -80,3 +80,23 @@ test('deadline includes response body parsing and late results never change the 
  const result=await scanMarkets([row('LATEUSDT')],{maxMs:20,allowPartial:true,analyze:()=>new Promise(resolve=>release=resolve)});
  assert.equal(result.picks.length,0);release({eligible:true,side:'BUY',rank:100});await Promise.resolve();await Promise.resolve();assert.equal(result.picks.length,0);assert.equal(result.results[0].eligible,false);
 });
+test('a slow market does not prevent the other analysis slot from processing every available pair',async()=>{
+ const seen=[],progress=[];
+ const result=await scanMarkets(['STUCKUSDT','FAST1USDT','FAST2USDT','FAST3USDT'].map(row),{maxMs:40,allowPartial:true,onProgress:c=>progress.push(c.analyzed),analyze:async symbol=>{
+  seen.push(symbol);if(symbol==='STUCKUSDT')return new Promise(()=>{});return {eligible:false,reason:'Current trend does not qualify'};
+ }});
+ assert.equal(seen.length,4);assert.ok(progress.includes(3));assert.equal(result.coverage.analyzed,3);assert.equal(result.coverage.incomplete,1);
+});
+test('a verified candidate ends a demo pass promptly and selects the highest completed rank',async()=>{
+ const rows=['GOODUSDT','BESTUSDT','STUCK1USDT','STUCK2USDT','LATERUSDT'].map(row);
+ const result=await scanMarkets(rows,{allowPartial:true,maxMs:500,selectionWindowMs:20,analyze:async symbol=>{
+  if(!['GOODUSDT','BESTUSDT'].includes(symbol))return new Promise(()=>{});
+  return {eligible:true,side:'BUY',rank:symbol==='BESTUSDT'?100:1};
+ }});
+ assert.equal(result.coverage.candidateReady,true);assert.equal(result.coverage.timedOut,false);assert.equal(result.picks[0].symbol,'BESTUSDT');
+ assert.ok(result.coverage.remaining>0);assert.equal(result.coverage.complete,false);
+});
+test('screening rejections and advisory history do not obscure current entry blockers',()=>{
+ const summary=summarize([{screenedOut:true,reason:'Liquidity or spread does not meet entry rules'},{checks:[{label:'Historical sample',pass:false,required:false},{label:'Current momentum',pass:false}]}]);
+ assert.equal(summary.screenedOut,1);assert.match(explain(summary),/Current momentum/);assert.doesNotMatch(explain(summary),/Historical|Liquidity/);
+});

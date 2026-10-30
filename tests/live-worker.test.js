@@ -180,3 +180,8 @@ test('live worker scans past the first eight pairs and enters the highest-ranked
  worker.analyze=async symbol=>({...await analyze(symbol),rank:Number(symbol.match(/\d+/)[0])});
  await activate(worker);await worker.cycle();assert.equal(broker.sent[0].ticket.symbol,'PAIR11USDT');assert.equal(worker.status().coverage.checked,12);
 });
+test('a demo forward-test plan cannot authorize an order from the real worker',async t=>{
+ const {worker,broker}=setup(t),original=worker.analyze;
+ worker.analyze=async()=>({...await original(),executionPolicy:'DEMO_FORWARD_TEST'});
+ await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.equal(worker.status().active,false);assert.match(worker.status().message,/Demo forward-test decisions cannot authorize real orders/);
+});

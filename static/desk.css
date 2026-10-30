@@ -15,3 +15,5 @@ body{font-size:13px;background:#0b121b}.shell{background:#0b121b}.sidebar{width:
 .real-decision{padding:12px 0;border-top:1px solid var(--line);font-size:11px}.real-decision strong{color:#b6dbcf}.real-decision p{font-size:11px!important;margin:5px 0;color:#98adba;line-height:1.6}#real-decision-rows{font-size:11px;color:#8ea6b6;line-height:1.6}
 
 .auto-progress{font-size:11px;line-height:1.65;color:#91acbc;margin:10px 0 0;overflow-wrap:anywhere}#auto-message{overflow-wrap:anywhere}
+
+.evidence-advisory strong{color:#d8bf92}

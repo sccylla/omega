@@ -101,5 +101,18 @@ test('network failures expose safe source codes without copying error text or su
 test('public decision endpoint rejects writes and invalid inputs before collecting market data',async()=>{
  const handler=require('../api/decision'),result=()=>({setHeader(){},status(code){this.code=code;return this},json(body){this.body=body;return this}});
  const denied=result();await handler({method:'POST',query:{symbol:'BTC'}},denied);assert.equal(denied.code,405);
- for(const query of [{symbol:'https://evil.example'},{symbol:'BTC',side:'LONG'},{symbol:['BTC','ETH']}]){const r=result();await handler({method:'GET',query},r);assert.equal(r.code,400)}
+ for(const query of [{symbol:'https://evil.example'},{symbol:'BTC',side:'LONG'},{symbol:['BTC','ETH']},{symbol:'BTC',mode:'unsafe'}]){const r=result();await handler({method:'GET',query},r);assert.equal(r.code,400)}
+});
+test('public API applies demo history policy explicitly and defaults to strict live policy',async()=>{
+ const evidencePath=require.resolve('../lib/market-evidence'),apiPath=require.resolve('../api/decision'),previous=require.cache[evidencePath].exports;
+ const e=require('./fixtures/advanced-evidence').evidence(Date.now());e.five=e.five.slice(-500);
+ try{
+  require.cache[evidencePath].exports={...previous,collectEvidence:async()=>e};delete require.cache[apiPath];const handler=require(apiPath);
+  for(const mode of [undefined,'live','demo']){
+   const res={setHeader(){},status(n){this.code=n;return this},json(d){this.body=d;return this}};
+   await handler({method:'GET',query:{symbol:'XRP',...(mode?{mode}:{})}},res);
+   assert.equal(res.code,200);assert.equal(res.body.decision.eligible,mode==='demo');assert.equal(res.body.decision.validation.passed,false);
+   assert.equal(res.body.decision.executionPolicy,mode==='demo'?'DEMO_FORWARD_TEST':'LIVE_STRICT');
+  }
+ }finally{require.cache[evidencePath].exports=previous;delete require.cache[apiPath]}
 });

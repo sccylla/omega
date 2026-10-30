@@ -1,25 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {decide,holdout,candles,resampleComplete,correlation,priceRules}=require('../lib/advanced-decision');
-const NOW=Date.UTC(2026,9,29,20,0,12);
-// Artificial, deliberately well-covered market. It is not a real performance sample.
-function series(n,duration,trend=.0006,amplitude=.008,period=16,phase=1,now=NOW,padding=.0025){
- let previous;
- return Array.from({length:n},(_,i)=>{
-  const timestamp=Math.floor(now/duration)*duration-(n-i)*duration,close=Math.exp(i*trend)*(1+amplitude*Math.sin((i-n+1+phase)*2*Math.PI/period)),open=previous||close;
-  previous=close;return [timestamp,open,Math.max(open,close)+close*padding,Math.min(open,close)-close*padding,close,100000];
- });
-}
-function evidence(now=NOW){
- const five=series(1000,300000,.0008,.003,6,2,now,.0005),price=five.at(-1)[4],bid=price*.99995,ask=price*1.00005;
- return {symbol:'XRPUSDT',observedAt:now,sourceTimes:Object.fromEntries(['five','quarter','hour','fourHour','benchmarkFive','book','ticker','openInterest','fundingHistory','instrument'].map(k=>[k,now])),errors:[],five,
-  quarter:series(300,900000,.001,.002,20,1,now),hour:series(200,3600000,.0015,.002,20,1,now),fourHour:series(100,14400000,.002,.002,20,1,now),benchmarkFive:series(200,300000,.0002,.0002,20,1,now),
-  book:{ts:now,b:Array.from({length:10},(_,i)=>[String(bid*(1-i*.0001)),'10000']),a:Array.from({length:10},(_,i)=>[String(ask*(1+i*.0001)),'10000'])},
-  ticker:{symbol:'XRPUSDT',bid1Price:String(bid),ask1Price:String(ask),lastPrice:String(price),turnover24h:'100000000',fundingRate:'.00001',nextFundingTime:String(now+4*3600000)},
-  openInterest:Array.from({length:12},(_,i)=>({timestamp:String(now-(11-i)*300000),openInterest:String(100000+i*100)})),
-  fundingHistory:Array.from({length:8},(_,i)=>({symbol:'XRPUSDT',fundingRate:'.00001',fundingRateTimestamp:String(now-(8-i)*8*3600000)})),
-  instrument:{symbol:'XRPUSDT',status:'Trading',quoteCoin:'USDT',contractType:'LinearPerpetual',fundingInterval:'480',lotSizeFilter:{qtyStep:'.001',minOrderQty:'.001',maxMktOrderQty:'100000',minNotionalValue:'5'},priceFilter:{tickSize:'.00001'}}};
-}
+const {NOW,series,evidence}=require('./fixtures/advanced-evidence');
 test('fully covered synthetic evidence may qualify, with no invented profit probability',()=>{
  const x=decide(evidence(),{now:NOW});
  assert.equal(x.eligible,true);assert.equal(x.decision,'BUY');assert.equal(x.notional,10);assert.equal(x.expiresAt,NOW+10000);assert.ok(x.checks.every(c=>c.pass));
@@ -121,4 +103,21 @@ test('no-time-limit holdout keeps unresolved trades open instead of inventing sa
  assert.equal(result.unresolvedTrades,1);assert.equal(result.passed,false);assert.ok(Number.isFinite(result.unresolvedMarkedNet));
  assert.ok(result.recent.every(r=>['Stop first','Profit target'].includes(r.reason)));
  assert.match(result.reason,/unresolved/);
+});
+test('demo can forward-test a current qualifying setup without twenty historical closed trades; live cannot',()=>{
+ const e=evidence();e.five=e.five.slice(-500);
+ const strict=decide(e,{now:NOW}),live=decide(e,{now:NOW,mode:'live'}),demo=decide(e,{now:NOW,mode:'demo'});
+ assert.equal(strict.eligible,false);assert.equal(live.eligible,false);assert.match(strict.reason,/Insufficient closed holdout trades/);
+ assert.equal(demo.eligible,true);assert.equal(demo.executionPolicy,'DEMO_FORWARD_TEST');assert.equal(demo.validation.entryGate,'ADVISORY_DEMO');
+ assert.equal(demo.validation.passed,false);assert.equal(demo.validation.tradeCount,0);assert.equal(demo.blockers.length,0);assert.ok(demo.warnings.length);
+ assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,1);
+ assert.equal(demo.targetNet,strict.targetNet);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,10);
+ assert.equal(decide(e,{now:NOW,mode:'unrecognized'}).eligible,false);
+});
+test('demo history advisory never bypasses current market data, direction, spread, funding or sizing rules',()=>{
+ for(const mutate of [e=>e.book=null,e=>e.five.splice(100,1),e=>e.ticker.turnover24h='1',e=>e.ticker.fundingRate='.001',e=>e.instrument.lotSizeFilter.minNotionalValue='11',e=>e.sourceTimes.ticker=NOW-16000]){
+  const e=evidence();e.five=e.five.slice(-500);mutate(e);const plan=decide(e,{now:NOW,mode:'demo'});
+  assert.equal(plan.eligible,false);assert.ok(plan.blockers.length);assert.ok(plan.checks.some(c=>!c.pass&&c.required!==false));
+ }
+ const e=evidence();e.five=e.five.slice(-500);assert.equal(decide(e,{now:NOW,mode:'demo',side:'SELL'}).eligible,false);
 });

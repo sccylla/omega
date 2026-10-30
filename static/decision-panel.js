@@ -11,23 +11,24 @@
   $('decision-heading').dataset.direction=direction;
   $('decision-reason').textContent=plan.reason||'The available evidence does not support an entry.';
   const checks=Array.isArray(plan.checks)?plan.checks:[];
-  $('decision-check-count').textContent=checks.filter(x=>x.pass).length+' / '+checks.length+' checks passed';
+  const required=checks.filter(x=>x.required!==false);
+  $('decision-check-count').textContent=required.filter(x=>x.pass).length+' / '+required.length+' required checks passed';
   const v=plan.validation||{},m=plan.metrics||{};
   const samples=v.trades??v.tradeCount??v.sampleCount;
-  $('decision-validation').textContent=Number.isFinite(samples)?samples+' / '+(v.minimumTrades??20)+' required historical price-only trades'+(v.unresolvedTrades?' · '+v.unresolvedTrades+' unresolved':'')+(v.passed===false?' · '+(v.reason||'validation failed'):''):'Historical evidence unavailable';
+  $('decision-validation').textContent=Number.isFinite(samples)?(v.entryGate==='ADVISORY_DEMO'?'Demo advisory: '+samples+' historical trades':samples+' / '+(v.minimumTrades??20)+' required historical price-only trades')+(v.unresolvedTrades?' · '+v.unresolvedTrades+' unresolved':'')+(v.passed===false?' · '+(v.reason||'validation failed'):''):'Historical evidence unavailable';
   $('decision-cost').textContent=money(m.estimatedRoundTripCostUsd??m.roundTripCostUsd);
   const stamp=plan.observedAt||plan.coverage?.observedAt;
   $('decision-observed').textContent=stamp?'Snapshot '+new Date(stamp).toLocaleTimeString():'Snapshot time unavailable';
   const list=$('decision-checks');list.replaceChildren();
   for(const c of checks){
    const row=document.createElement('li'),label=document.createElement('strong'),detail=document.createElement('span');
-   row.className=c.pass?'evidence-pass':'evidence-fail';label.textContent=(c.pass?'✓ ':'× ')+c.label;detail.textContent=c.detail||'';
+   row.className=c.pass?'evidence-pass':c.required===false?'evidence-advisory':'evidence-fail';label.textContent=(c.pass?'✓ ':c.required===false?'ⓘ Advisory: ':'× ')+c.label;detail.textContent=c.detail||'';
    row.append(label,detail);list.append(row);
   }
   $('decision-limits').textContent=v.caveat||v.limitations||'Historical prices cannot reproduce old order books, funding, latency or actual fills. This is limited evidence, not a profit forecast.';
  }
- async function analyze(symbol,{signal}={}){
-  const response=await fetch('/api/decision?'+new URLSearchParams({symbol}),{cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
+ async function analyze(symbol,{signal,mode='live'}={}){
+  const response=await fetch('/api/decision?'+new URLSearchParams({symbol,mode}),{cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
   const data=await response.json();
   if(!response.ok)throw Error(data.error||'Market evidence is unavailable');
   if(!data.decision||typeof data.decision!=='object')throw Error('Invalid market decision response');
@@ -39,7 +40,7 @@
   try{
    let symbol=$('decision-symbol').value.trim().toUpperCase();if(!symbol.endsWith('USDT'))symbol+='USDT';
    if(!/^[A-Z0-9]{2,24}USDT$/.test(symbol))throw Error('Enter a USDT market symbol such as BTC or ETH.');
-   const result=await analyze(symbol);if(request!==sequence)return;
+   const result=await analyze(symbol,{mode:document.body.dataset.account==='real'?'live':'demo'});if(request!==sequence)return;
    render(result,symbol);$('decision-analysis-message').textContent='Analysis complete. This action never opens a trade.';
   }catch(e){if(request===sequence){render({eligible:false,reason:e.message,checks:[{label:'Market evidence available',pass:false}]},'MARKET');$('decision-analysis-message').textContent='No trade: evidence could not be verified.'}}finally{if(request===sequence)button.disabled=false}
  });

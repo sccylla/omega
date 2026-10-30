@@ -53,18 +53,19 @@
    },{signal:run.signal,timeoutMs:12000,label:'Market list'});
    $('auto-universe').textContent=Number(data.universe||0).toLocaleString();
    const {results,picks,coverage,summary,nextAfter}=await M.scanMarkets(data.rows||[],{
-    analyze:window.OmegaDecision.analyze,
-    signal:run.signal,maxMs:30000,allowPartial:true,startAfter:cursor,
+    analyze:(symbol,options)=>window.OmegaDecision.analyze(symbol,{...options,mode:'demo'}),
+    signal:run.signal,maxMs:30000,allowPartial:true,startAfter:cursor,selectionWindowMs:permitEntries?1200:null,
     isCancelled:()=>document.hidden||permitEntries&&(!running||document.body.dataset.account==='real'),
     canEnter:p=>{const a=A.read();return !a.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,''))&&!window.OmegaPortfolio.concentrated(p.side,p.metrics?.benchmarkCorrelation,a.positions)},
-    onProgress:c=>progress('Pass '+pass+': '+c.screened+' markets screened · '+c.analyzed+' detailed results · '+c.rejected+' rejected for liquidity/spread · '+c.remaining+' awaiting detailed analysis')
+    onProgress:c=>progress('Pass '+pass+': '+c.screened+' markets screened · '+c.analyzed+' detailed results · '+c.qualified+' qualifying · '+c.rejected+' rejected for liquidity/spread · '+c.remaining+' awaiting detailed analysis')
    });
    if(coverage.cancelled){status('Scan stopped. No new trade submitted.','OFF');return}
    cursor=nextAfter;
-   const scope=coverage.complete?'Full detailed scan complete.':'30-second analysis pass complete; remaining pairs continue on the next pass.';
+   const scope=coverage.complete?'Full detailed scan complete.':coverage.candidateReady?'Qualified setup found; selecting from verified candidates now.':'30-second analysis pass complete; remaining pairs continue on the next pass.';
    progress('Pass '+pass+' complete. '+coverage.screened+' screened · '+coverage.analyzed+' detailed results · '+coverage.incomplete+' unavailable or unfinished. '+scope);
    const list=$('auto-shortlist');list.replaceChildren();
-   for(const result of [...picks,...results.filter(x=>!picks.includes(x))].slice(0,5)){
+   const assessed=results.filter(x=>!x.screenedOut&&!picks.includes(x)).sort(M.rank),display=[...picks,...assessed,...results.filter(x=>x.screenedOut)];
+   for(const result of display.slice(0,5)){
     const row=document.createElement('div');row.className='decision-row';
     const market=document.createElement('button');market.type='button';market.textContent=result.symbol.replace(/USDT$/,'')+' / '+(result.eligible?result.side:'WAIT');market.addEventListener('click',()=>window.OmegaDecision.render(result,result.symbol));
     const why=document.createElement('span');why.textContent=result.reason;
@@ -72,7 +73,7 @@
    }
    if(!results.length)list.textContent='No market qualifies for a closer look. Waiting is a decision.';
    $('auto-choice').textContent=picks.length?picks[0].symbol+' '+picks[0].side:'WAIT';
-   if(results.length)window.OmegaDecision.render(picks[0]||results[0],(picks[0]||results[0]).symbol);
+   if(display.length)window.OmegaDecision.render(display[0],display[0].symbol);
    if(!picks.length){status('Pass '+pass+': '+(permitEntries?'No entry. ':'Scan only; trading is disabled for this scan. ')+M.explain(summary),permitEntries?'NO ENTRY':'SCAN ONLY');return}
    if(!permitEntries){status('Analysis complete: '+picks.length+' candidate(s). Scan without trading never places orders; press Trade to enable automatic entries.','SCAN ONLY');return}
    const account=A.read();
@@ -81,7 +82,7 @@
    // A deep scan can take time. Obtain a current decision again immediately before entry.
    let fresh=null;
    $('auto-state').textContent='CHECKING ENTRY';
-   for(const ranked of picks){if(!running||document.hidden||document.body.dataset.account==='real')return;const latest=await M.within(signal=>window.OmegaDecision.analyze(ranked.symbol,{signal}),{signal:run.signal,timeoutMs:25000,label:'Entry evidence'});if(latest.eligible&&['BUY','SELL'].includes(latest.side)){fresh=latest;break}}
+   for(const ranked of picks){if(!running||document.hidden||document.body.dataset.account==='real')return;const latest=await M.within(signal=>window.OmegaDecision.analyze(ranked.symbol,{signal,mode:'demo'}),{signal:run.signal,timeoutMs:25000,label:'Entry evidence'});if(latest.eligible&&['BUY','SELL'].includes(latest.side)){fresh=latest;break}}
    if(!fresh)throw Error('No ranked pair still qualifies after refreshing market evidence.');
    window.OmegaDecision.render(fresh,fresh.symbol);
    if(!fresh.eligible||!['BUY','SELL'].includes(fresh.side))throw Error('The setup no longer qualifies: '+fresh.reason);
@@ -92,8 +93,8 @@
     if(a.positions.some(p=>p.symbol===symbol))throw Error('This market already has an open position.');
     if(!Number.isFinite(pick.observedAt)||Date.now()-pick.observedAt>10000||!Number.isFinite(pick.expiresAt)||Date.now()>pick.expiresAt||pick.observedAt>Date.now()+1000||Date.now()-(pick.barTime+300000)>360000)throw Error('Setup expired during scanning.');
     if(window.OmegaPortfolio.concentrated(pick.side,pick.metrics?.benchmarkCorrelation,a.positions))throw Error('Portfolio concentration: correlated exposure or unknown correlation blocks another position.');
-    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:10,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet:pick.targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null}});
-    status('Pass '+pass+': opened $10 virtual '+pick.side+' '+symbol+', the best qualifying pair analyzed in this pass. Net profit target $'+pick.targetNet.toFixed(2)+'; protective stop active while this page is open.','TRADE OPEN');
+    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:10,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet:pick.targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null}});
+    status('Pass '+pass+': opened $10 virtual '+pick.side+' '+symbol+', the best qualifying pair analyzed in this pass. Net profit target $'+pick.targetNet.toFixed(2)+'; protective stop active while this page is open.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':''),'TRADE OPEN');
     return next;
    },{requireLock:true,signal}),{signal:run.signal,timeoutMs:5000,label:'Demo entry account lock'});
   }catch(e){
