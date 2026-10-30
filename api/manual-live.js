@@ -51,9 +51,8 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
   if(!SYMBOL.test(symbol))throw err(400,'Choose a valid Bybit USDT perpetual pair');
   if(!broker.ready())throw err(503,'Bybit trading credentials are missing');
   if(!enabled())throw err(503,'Manual real-money execution is disabled on this deployment');
-  const plan=await analyze(symbol);
-  if(!plan||plan.executionPolicy==='DEMO_FORWARD_TEST'||!plan.eligible||!['BUY','SELL'].includes(plan.side)||!Number.isSafeInteger(plan.barTime)||!Number.isFinite(plan.expiresAt)||clock()>plan.expiresAt)throw err(409,'No fresh, strictly eligible live setup for '+symbol+': '+String(plan?.reason||'Market not qualified').slice(0,160));
-  const snapshot=await broker.snapshot();
+  const [plan,snapshot]=await Promise.all([analyze(symbol),broker.snapshot()]);
+  if(!plan||plan.executionPolicy!=='LIVE_STRICT'||!plan.eligible||!['BUY','SELL'].includes(plan.side)||!Number.isSafeInteger(plan.barTime)||!Number.isFinite(plan.expiresAt)||clock()>plan.expiresAt)throw err(409,'No fresh, strictly eligible live setup for '+symbol+': '+String(plan?.reason||'Market not qualified').slice(0,160));
   const ticket=await broker.ticket(symbol,plan.side==='BUY'?'Buy':'Sell',plan);
   const limits=risk(snapshot,ticket);
   if(clock()>plan.expiresAt)throw err(409,'Entry analysis expired during broker checks; prepare again');

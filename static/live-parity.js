@@ -4,7 +4,7 @@
  if(!button||!check)return;
  const setState=(id,label,state)=>{const n=document.createElement('div');n.className='live-readiness-item '+state;const marker=document.createElement('span');marker.textContent=state==='ok'?'✓':state==='warn'?'!':'○';const t=document.createElement('span');t.textContent=label;n.append(marker,t);$(id).append(n)};
  async function request(url,options={}){
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),28000);
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),options.post?60000:28000);
   try{
    const response=await fetch(url,{method:options.post?'POST':'GET',cache:'no-store',credentials:'same-origin',headers:options.post?{'Content-Type':'application/json','X-OMEGA-REQUEST':'1'}:undefined,body:options.post?JSON.stringify(options.post):undefined,signal:options.signal?AbortSignal.any([controller.signal,options.signal]):controller.signal});
    let data;try{data=await response.json()}catch{throw Error('Invalid server response')}
@@ -99,39 +99,9 @@
    if(!/^[A-Z0-9]{2,24}USDT$/.test(s))throw Error('Enter a Bybit USDT perpetual pair, such as XRPUSDT.');
    const d=await request('/api/manual-live',{post:{action:'preview',symbol:s}});
    previewToken=d.previewToken;summary.hidden=false;
-   field('MARKET',d.symbol);field('DIRECTION',d.side);field('EST. NOTIONAL','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.notional.toFixed(2));
-   field('EST. ENTRY','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.entryEstimate);field('STOP LOSS','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.stopLoss);field('TAKE PROFIT','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.takeProfit);
-   field('EST. STOP RISK','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.estimatedStopRiskUsd.toFixed(3));field('MODEL NET TARGET','
- check.addEventListener('click',ready);
- document.querySelector('[data-account-mode="real"]')?.addEventListener('click',ready);
- ready();
-})();
-+d.targetNet.toFixed(3));field('PREVIEW EXPIRES',d.expiresInSeconds+' seconds');
+   field('MARKET',d.symbol);field('DIRECTION',d.side);field('EST. NOTIONAL','USD '+d.notional.toFixed(2));
+   field('EST. ENTRY','USD '+d.entryEstimate);field('STOP LOSS','USD '+d.stopLoss);field('TAKE PROFIT','USD '+d.takeProfit);
+   field('EST. STOP RISK','USD '+d.estimatedStopRiskUsd.toFixed(3));field('MODEL NET TARGET','USD '+d.targetNet.toFixed(3));field('PREVIEW EXPIRES',d.expiresInSeconds+' seconds');
    msg.textContent='Preview ready. Read the entry, stop and target. Type the full confirmation phrase to submit one live order.';
   }catch(e){msg.textContent='NO ORDER SENT: '+e.message}
   finally{preparing=false}
