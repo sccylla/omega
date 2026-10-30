@@ -45,7 +45,7 @@
  $('real-refresh').addEventListener('click',refresh);
  $('real-activate-form').addEventListener('submit',async e=>{
   e.preventDefault();if(working||!worker||!worker.configured||!worker.serverEnabled)return;
-  if($('real-confirm').value!=='START REAL $10 BOT'){$('real-worker-message').textContent='Type the activation phrase exactly.';return}
+  if($('real-confirm').value!=='START REAL $90 BOT'){$('real-worker-message').textContent='Type the activation phrase exactly.';return}
   working=true;showWorker(worker);let failure=null;
   try{const d=await api('/api/bot',{action:'start',confirm:$('real-confirm').value,dailyLimit:Number($('real-loss-budget').value)});$('real-confirm').value='';showWorker(d)}catch(err){failure=err.message}finally{working=false;if(worker)showWorker(worker);if(failure)$('real-worker-message').textContent=failure}
  });
