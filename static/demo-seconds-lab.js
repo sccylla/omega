@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
- const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds;
- if(!E||!A||!$('demo-seconds-start'))return;
+ const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals;
+ if(!E||!A||!X||!$('demo-seconds-start'))return;
  const KEY='omega_demo_seconds_wallet_v1',WS='wss://stream.bybit.com/v5/public/linear';
  const money=x=>Number.isFinite(x)?(x<0?'−$':'$')+Math.abs(x).toFixed(2):'—',
   bps=x=>Number.isFinite(x)?x.toFixed(1)+' bp':'—';
@@ -71,7 +71,7 @@
    if(Date.now()-lastConnected>12000)halt('Public seconds feed disconnected. No virtual price exits fabricated.');
    return
   }
-  const now=Date.now(),results=symbols.map(s=>engine.observation(s,now)),
+  const now=Date.now(),results=symbols.map(s=>X.evaluate(engine.observation(s,now))),
    quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
   const out=A.step(wallet,{now,signals:results,quotes,connected:true});
   if(out.events.length){
@@ -105,7 +105,7 @@
    if(id!==epoch||!active)return;
    lastConnected=Date.now();
    socket.send(JSON.stringify({op:'subscribe',args:symbols.flatMap(s=>['orderbook.50.'+s,'publicTrade.'+s])}));
-   setStatus('Bybit connected. Gathering 30 seconds of live price movement and trade flow before qualifying any virtual entry.');
+   setStatus('Bybit connected. Gathering 30 seconds of live trade flow for Demo exploratory impulses (minimum 8 bp range). Net exit target remains $0.50; entries are not guaranteed.');
   };
   socket.onmessage=event=>{
    if(id!==epoch||!active||document.hidden||typeof event.data!=='string'||event.data.length>900000)return;
