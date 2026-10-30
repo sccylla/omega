@@ -12,7 +12,7 @@ test('Demo can choose 20 independent futures symbols; funded research retains 5 
  assert.equal(Engine.create(PAIRS,{maxSymbols:20}).symbols.length,20);
  assert.throws(()=>Engine.create(PAIRS),/1–5/);
  assert.throws(()=>Engine.validSymbols([...PAIRS,'PEPEUSDT'],{maxSymbols:20}),/1–20/);
- assert.throws(()=>Engine.validSymbols([...PAIRS.slice(1),'BTCUSDT'],{maxSymbols:20}),/unique/);
+ assert.throws(()=>Engine.validSymbols([...PAIRS.slice(0,19),'BTCUSDT'],{maxSymbols:20}),/unique/);
 });
 test('Demo $90 position does not time-out after 45, 180 or 1800 seconds',()=>{
  const t=now+100,open=Demo.step(Demo.initial(t),{now:t,signals:[signal],quotes:{BTCUSDT:quote(t,99.98,100.02)},connected:true});

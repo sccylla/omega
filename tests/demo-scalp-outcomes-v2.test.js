@@ -32,15 +32,15 @@ test('Guard rejects missing history and expensive execution',()=>{
  assert.equal(Guard.filter({...candidate(),spreadBps:3},history(100,.05,now),now).state,'WAIT');
  assert.equal(Guard.filter({...candidate(),roundTripImpactBps:12},history(100,.05,now),now).state,'WAIT');
 });
-test('New Demo holds a still-open virtual scalp past 45s but exits at 180s without fake profit',()=>{
+test('New Demo keeps a virtual scalp open past 45 and 180 seconds until an actual price or protective exit',()=>{
  const start=ORIGIN+100,a=enter(start);
  const halfway=Demo.step(a,{now:start+50000,signals:[],quotes:{[SYMBOL]:book(start+50000,99.99,100.01)},connected:true});
  assert.equal(halfway.account.ledger.open.symbol,SYMBOL);
  assert.equal(halfway.account.closedTrades,0);
  const end=Demo.step(halfway.account,{now:start+180001,signals:[],quotes:{[SYMBOL]:book(start+180001,99.99,100.01)},connected:true});
- assert.equal(end.account.closedTrades,1);
- assert.match(end.events[0].trade.reason,/180s time limit/);
- assert.ok(end.events[0].trade.net<0);
+ assert.equal(end.account.closedTrades,0);
+ assert.equal(end.events.length,0);
+ assert.equal(end.account.ledger.open.symbol,SYMBOL);
 });
 test('Old strict research shadow still times out at 45 seconds, independent from Demo',()=>{
  const now=ORIGIN+100,s=Shadow.step(Shadow.init(),{now,signals:[candidate()],quotes:{[SYMBOL]:book(now,99.99,100.01)},connected:true});
