@@ -10,7 +10,8 @@
   if(!a.length||a.length>maxSymbols||new Set(a).size!==a.length||a.some(x=>!SYMBOL.test(x)))throw Error('Choose 1–'+maxSymbols+' unique USDT futures pairs, separated by commas');
   return a;
  };
- function create(symbols,{maxSymbols=5}={}){
+ function create(symbols,{maxSymbols=5,notional=MIN_NOTIONAL,goalNet=GOAL_NET}={}){
+  if(!finite(notional)||notional<5||notional>1000||!finite(goalNet)||goalNet<=0||goalNet>=notional*.05)throw Error('Invalid demo research sizing');
   const list=validSymbols(symbols,{maxSymbols}),stores=Object.fromEntries(list.map(symbol=>[symbol,{symbol,bids:new Map(),asks:new Map(),bookTime:0,bookSeq:0,bookReady:false,midHistory:[],trades:[],tradeIds:new Set(),tradeTime:0,lastUpdate:0,acceptedBooks:0,acceptedTrades:0}]));
   function ingest(msg,now=Date.now()){
    if(!msg||typeof msg.topic!=='string'||!finite(now))return false;
@@ -72,14 +73,14 @@
    const r=stores[symbol];if(!r||!r.bookReady||now-r.bookTime>MAX_AGE_MS||r.bookTime>now+1000)return null;
    const bids=levels(r,'bid'),asks=levels(r,'ask'),bid=bids[0]?.[0],ask=asks[0]?.[0];
    if(!(bid>0&&ask>bid))return null;
-   const mid=(bid+ask)/2,bidVwap=fill(bids,MIN_NOTIONAL),askVwap=fill(asks,MIN_NOTIONAL);
+   const mid=(bid+ask)/2,bidVwap=fill(bids,notional),askVwap=fill(asks,notional);
    if(!bidVwap||!askVwap||bidVwap>=askVwap)return null;
    const spreadBps=(ask-bid)/mid*1e4,roundTripImpactBps=(askVwap-bidVwap)/mid*1e4;
    const depthBid=bids.slice(0,5).reduce((n,[p,q])=>n+p*q,0),depthAsk=asks.slice(0,5).reduce((n,[p,q])=>n+p*q,0);
    const imbalance=(depthBid-depthAsk)/(depthBid+depthAsk);
    return {symbol,bid,ask,mid,bidVwap,askVwap,spreadBps,roundTripImpactBps,depthBid,depthAsk,imbalance,
-    requiredMoveBps:GOAL_NET/MIN_NOTIONAL*1e4+(MAKERLESS_TAKER*2+EXTRA_SLIP*2)*1e4+roundTripImpactBps,
-    observedAt:r.bookTime,notional:MIN_NOTIONAL,feeRate:MAKERLESS_TAKER,slippageRate:EXTRA_SLIP};
+    requiredMoveBps:goalNet/notional*1e4+(MAKERLESS_TAKER*2+EXTRA_SLIP*2)*1e4+roundTripImpactBps,
+    observedAt:r.bookTime,notional,feeRate:MAKERLESS_TAKER,slippageRate:EXTRA_SLIP};
   }
   function observation(symbol,now=Date.now()){
    const r=stores[symbol];if(!r)return {symbol,state:'UNKNOWN',reason:'Pair not monitored'};
