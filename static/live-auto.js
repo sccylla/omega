@@ -26,7 +26,7 @@ async function scan(trading){
    $('live-auto-positions').textContent=account.openPositions??'—';
    if(!Number.isFinite(account.equity)||!Number.isFinite(account.available))throw Error('Bybit account balance unavailable');
    if(account.openPositions>0){status('Existing Bybit position open. Waiting for its exchange-side TP/SL before scanning again.','MANAGING');return}
-   if(account.equity<50||account.available<10){status('At least $50 Bybit equity and $10 available funds required.','BALANCE LOW');return}
+   if(account.equity<450||account.available<90){status('A $90 trade at no more than 20% account exposure needs at least $450 equity and $90 available margin.','BALANCE LOW');return}
   }
   status('Scanning Bybit futures…','SCANNING');
   const universe=await M.within(signal=>request('/api/scanner?market=futures&page=1&size=15',null,signal),{signal:controller.signal,timeoutMs:15000,label:'Market universe'});
@@ -52,8 +52,8 @@ async function scan(trading){
   const order=await request('/api/auto-live',{action:'enter',symbol:selected.symbol,token},controller.signal);
   if(!order.submitted)throw Error('Bybit did not acknowledge an order');
   lastBar=selected.barTime;
-  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Stop '+order.stopLoss+' · target '+order.takeProfit+'. Verify the fill and protection at Bybit.','ORDER SENT');
-  progress('One real entry submitted. Existing position/pending-order checks block duplicate exposure.');
+  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Estimated net TP goal $0.50+ at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
+  progress('One $90+ real entry submitted. Once Bybit confirms the position is closed, the next scan may open another eligible trade.');
  }catch(e){
   if(canceled())return;
   if(e.status===409){status('No eligible live entry: '+e.message,'WAITING FOR SETUP');return}

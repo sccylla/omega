@@ -28,13 +28,13 @@
    if(b.status==='fulfilled'){
     const d=b.value,valid=Number.isFinite(d.equity)&&Number.isFinite(d.available);
     setState('live-readiness-grid',valid?'Bybit account read verified · $'+d.equity.toFixed(2)+' equity / $'+d.available.toFixed(2)+' available':'Account response missing balance',valid?'ok':'missing');
-    if(valid)setState('live-readiness-grid',d.equity>=50&&d.available>=10?'Worker balance threshold met ($50 equity, $10 available)':'Insufficient balance for worker startup ($50 equity, $10 available)',d.equity>=50&&d.available>=10?'ok':'missing');
+    if(valid)setState('live-readiness-grid',d.equity>=450&&d.available>=90?'Live balance threshold met ($450 equity, $90 available)':'Insufficient balance for a $90 live trade ($450 equity, $90 available)',d.equity>=450&&d.available>=90?'ok':'missing');
    }else setState('live-readiness-grid','Broker account read failed: '+b.reason.message,'missing');
    if(w.status==='fulfilled'){
     const d=w.value;
     setState('live-readiness-grid',d.configured?'Bybit credentials available for manual order requests':'Bybit trading credentials missing',d.configured?'ok':'missing');
     setState('live-readiness-grid',d.enabled?'Manual execution switch enabled · every order needs confirmation':'Manual order execution switch is off',d.enabled?'warn':'missing');
-    summary.textContent=d.enabled&&d.configured?'Manual $10 trading is available after fresh signal, balance, exchange and risk checks. No order is automatic.':'Manual execution is currently disabled; market scanning remains read-only.';
+    summary.textContent=d.enabled&&d.configured?'Manual $90+ trading is available after fresh signal, balance, exchange and risk checks. No order is automatic.':'Manual execution is currently disabled; market scanning remains read-only.';
    }else{
     setState('live-readiness-grid','Manual order endpoint unavailable: '+w.reason.message,'missing');
     summary.textContent='Real-money trading is not ready. Market scanning remains read-only.';
@@ -50,7 +50,7 @@
   const fail=(plan?.checks||[]).filter(c=>!c.pass&&c.required!==false).slice(0,2);
   reason.textContent=plan?.eligible?'All required live market checks passed at snapshot time; no order submitted.':(fail.map(c=>c.label).join(' · ')||plan?.reason||'No qualified live setup');
   left.append(name,reason);const tag=document.createElement('span');tag.textContent=plan?.eligible?'QUALIFIED':'NO ENTRY';item.append(left,tag);
-  if(plan?.eligible){const prepare=document.createElement('button');prepare.type='button';prepare.textContent='Prepare $10 LIVE';prepare.addEventListener('click',()=>prepareManual(symbol));item.append(prepare)}
+  if(plan?.eligible){const prepare=document.createElement('button');prepare.type='button';prepare.textContent='Prepare $90+ LIVE';prepare.addEventListener('click',()=>prepareManual(symbol));item.append(prepare)}
   parent.append(item);
  }
  async function preview(){
@@ -94,7 +94,7 @@
  async function prepareManual(symbol){
   if(preparing||submitting)return;
   preparing=true;resetPreview();const s=String(symbol||'').trim().toUpperCase();
-  msg.textContent='Preparing a $10 LIVE order for '+s+'; this step submits no funded order.';
+  msg.textContent='Preparing a $90+ LIVE order for '+s+'; this step submits no funded order.';
   try{
    if(!/^[A-Z0-9]{2,24}USDT$/.test(s))throw Error('Enter a Bybit USDT perpetual pair, such as XRPUSDT.');
    const d=await request('/api/manual-live',{post:{action:'preview',symbol:s}});
@@ -106,13 +106,13 @@
   }catch(e){msg.textContent='NO ORDER SENT: '+e.message}
   finally{preparing=false}
  }
- entryConfirm?.addEventListener('input',()=>{execute.disabled=!previewToken||entryConfirm.value!=='PLACE REAL $10 TRADE'||submitting});
+ entryConfirm?.addEventListener('input',()=>{execute.disabled=!previewToken||entryConfirm.value!=='PLACE REAL $90 TRADE'||submitting});
  execute?.addEventListener('click',async()=>{
-  if(!previewToken||submitting||entryConfirm.value!=='PLACE REAL $10 TRADE')return;
+  if(!previewToken||submitting||entryConfirm.value!=='PLACE REAL $90 TRADE')return;
   submitting=true;execute.disabled=true;const token=previewToken;previewToken=null;
   msg.textContent='Confirming fresh market and account risk checks. DO NOT resubmit if the outcome becomes uncertain.';
   try{
-   const d=await request('/api/manual-live',{post:{action:'execute',confirm:'PLACE REAL $10 TRADE',previewToken:token}});
+   const d=await request('/api/manual-live',{post:{action:'execute',confirm:'PLACE REAL $90 TRADE',previewToken:token}});
    msg.textContent='Bybit order request accepted: '+d.symbol+' '+d.side+' · '+d.orderStatus+'. Verify the fill and stop/target prices at Bybit now.';
    summary.replaceChildren();summary.hidden=false;
    field('BYBIT ORDER ID',d.orderId||'Check broker');field('STATUS',d.orderStatus);field('MARKET',d.symbol);
