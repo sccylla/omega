@@ -2,7 +2,7 @@
 (()=>{
 const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,S=window.OmegaSecondsShadow;
 if(!E||!S||!$('seconds-toggle'))return;
-const KEY='omega_seconds_shadow_v1',SOCKET='wss://stream.bybit.com/v5/public/linear';
+const KEY='omega_seconds_shadow_v1',TICK_KEY='omega_seconds_1s_capture_v1',SOCKET='wss://stream.bybit.com/v5/public/linear';
 let ws=null,engine=null,active=false,connecting=false,lastConnect=0,latest=[],symbols=[],ledger=S.init(),epoch=0;
 const button=$('seconds-toggle'),status=text=>{$('seconds-status').textContent=text};
 const setMode=s=>{$('seconds-mode').textContent=s};
@@ -11,6 +11,25 @@ const bps=v=>Number.isFinite(v)?v.toFixed(1)+' bp':'—';
 const read=()=>{try{return S.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return S.init()}};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(ledger));return true}catch{stop('Shadow storage unavailable; scanner halted to avoid fabricated statistics');return false}};
 ledger=read();if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}
+const readCaptures=()=>{try{const x=JSON.parse(localStorage.getItem(TICK_KEY)||'[]');return Array.isArray(x)?x.slice(-12000).filter(r=>Array.isArray(r)&&r.length===12&&r.every((v,i)=>i===1||i===11?typeof v==='string':typeof v==='number'&&Number.isFinite(v))):[]}catch{return[]}};
+let captures=readCaptures(),lastRecordSecond=-1;
+function flushCaptures(){try{localStorage.setItem(TICK_KEY,JSON.stringify(captures));return true}catch{stop('Second-by-second research log cannot be saved; scanner paused to prevent losing study data.');return false}}
+function capture(now,items){
+ const sec=Math.floor(now/1000);
+ if(lastRecordSecond===sec)return true;
+ lastRecordSecond=sec;
+ for(const p of items){
+  if(!Number.isFinite(p.mid)||!Number.isFinite(p.spreadBps)||!Number.isFinite(p.requiredMoveBps))continue;
+  captures.push([sec,p.symbol,p.mid,p.spreadBps,p.requiredMoveBps,
+   Number.isFinite(p.move5Bps)?p.move5Bps:0,Number.isFinite(p.move15Bps)?p.move15Bps:0,
+   Number.isFinite(p.range30Bps)?p.range30Bps:0,Number.isFinite(p.flowPressure)?p.flowPressure:0,
+   Number.isFinite(p.imbalance)?p.imbalance:0,Number.isFinite(p.score)?p.score:0,p.state]);
+ }
+ if(captures.length>12000)captures=captures.slice(-12000);
+ $('seconds-recordings').textContent=captures.length.toLocaleString()+' recorded one-second pair observations · Export CSV to study cost-adjusted movement frequencies and identify false signals.';
+ return sec%10!==0||flushCaptures();
+}
+
 function displayShadow(){
  const stat=S.stats(ledger);$('seconds-net').textContent=usd(stat.netUsd);
  $('seconds-shadow-state').textContent=ledger.open?ledger.open.side+' '+ledger.open.symbol+' · $90 virtual position':'No virtual position';
@@ -22,6 +41,7 @@ function stop(message){
  try{if(ws){ws.onopen=null;ws.onclose=null;ws.onerror=null;ws.onmessage=null;ws.close()}}catch{}
  ws=null;engine=null;
  if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}
+ try{localStorage.setItem(TICK_KEY,JSON.stringify(captures))}catch{}
  button.textContent='Start seconds scanner';setMode('OFFLINE · RESEARCH ONLY');
  status(message||'Paused. No public WebSocket updates are being collected, and no funded trading behavior was changed.');
  displayShadow();
@@ -42,6 +62,7 @@ function render(){
  if(!engine)return;
  const now=Date.now();latest=symbols.map(symbol=>engine.observation(symbol,now));
  const quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
+ if(!capture(now,latest))return;
  const live=ws?.readyState===WebSocket.OPEN&&active;
  const run=S.step(ledger,{signals:latest,quotes,now,connected:live});
  if(run.events.length){ledger=run.state;if(!save())return;
@@ -105,9 +126,19 @@ function start(){
  const id=epoch;connect(id);
 }
 button.addEventListener('click',start);
+$('seconds-export').addEventListener('click',()=>{
+ if(!captures.length){status('No recorded seconds to export. Start the scanner and keep this tab visible to collect tick observations.');return}
+ const header='epoch_second,symbol,midquote,spread_bps,net_target_move_bps,move_5s_bps,move_15s_bps,range_30s_bps,aggressor_pressure,book_imbalance,quality_score,state';
+ const csv=[header,...captures.map(row=>row.join(','))].join('\n');
+ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='omega_seconds_research_'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),3000);
+ status('Exported '+captures.length+' recorded 1-second pair observations. Research prices are indicative, not exchange-confirmed fill P&L.');
+});
+
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&active)stop('Paused when tab became hidden: seconds research cannot continue without a visible live feed.')});
 window.addEventListener('omega:account-mode',()=>{if(active&&document.body.dataset.account!=='real')stop('Seconds scanner paused after leaving the Real account view.')});
-window.addEventListener('beforeunload',()=>{active=false;if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}});
+window.addEventListener('beforeunload',()=>{try{localStorage.setItem(TICK_KEY,JSON.stringify(captures))}catch{}active=false;if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}});
 setInterval(()=>{
  if(!active||!engine||document.hidden)return;
  if(ws?.readyState===WebSocket.OPEN){
