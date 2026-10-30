@@ -60,7 +60,7 @@ test('bot controls reject unauthenticated calls even if a worker is installed',a
  try{await handler({method:'POST',headers:{},body:{action:'start'}},res);assert.equal(res.code,401)}finally{setController(null)}
 });
 test('per-trade risk and remaining dollar budget are checked before submission',async t=>{
- const {worker,broker}=setup(t);broker.s.equity=450;broker.s.available=450;const originalTicket=broker.ticket.bind(broker);broker.ticket=async(...args)=>({...await originalTicket(...args),stopLoss:'100'});await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/stop risk/);
+ const {worker,broker}=setup(t);broker.s.equity=500;broker.s.available=500;const originalTicket=broker.ticket.bind(broker);broker.ticket=async(...args)=>({...await originalTicket(...args),stopLoss:'100'});await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/stop risk/);
  broker.ticket=originalTicket;broker.s.equity=1000;broker.s.available=1000;
  await worker.control({action:'start',confirm:'START REAL $90 BOT',dailyLimit:.1});await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/budget/);
 });
