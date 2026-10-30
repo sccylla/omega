@@ -1,0 +1,19 @@
+/* OMEGA live account: consistent grouped workflow with demo, no auto fund execution. */
+.live-preflight,.live-parity{margin:18px 0;padding:24px}
+.live-parity-heading{display:flex;align-items:start;justify-content:space-between;gap:18px}
+.live-parity-heading h2{margin:5px 0 7px;font-size:20px;letter-spacing:-.5px}
+.live-parity-heading p{line-height:1.65;max-width:640px;margin:0}
+.live-parity-heading button{white-space:nowrap;flex-shrink:0}
+.live-readiness-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:20px 0}
+.live-readiness-item{display:flex;align-items:center;gap:12px;padding:13px;border:1px solid #34475b;border-radius:11px;color:#b7c9d8;background:#0b1723;font-size:12px;line-height:1.5}
+.live-readiness-item>span:first-child{font-weight:900;font-size:16px;color:#88acc5}
+.live-readiness-item.ok{border-color:#27574b;background:#112e28}.live-readiness-item.ok>span:first-child{color:#53d3a4}
+.live-readiness-item.missing{border-color:#66504b;background:#291d21}.live-readiness-item.missing>span:first-child{color:#efaa91}
+.live-readiness-item.warn{border-color:#665a3c;background:#29251b}.live-readiness-item.warn>span:first-child{color:#f4d38b}
+.live-research-status{padding:13px 0;color:#91b5ca;font-size:12px}
+.live-candidate-rows{display:flex;flex-direction:column;gap:9px}
+.live-candidate{display:flex;align-items:center;justify-content:space-between;gap:15px;border:1px solid #2b3f50;border-radius:11px;padding:14px;background:#101d2c}
+.live-candidate strong{font-size:13px;color:#e6eef6}.live-candidate p{margin:6px 0 0;color:#94aabe;font-size:11px;line-height:1.55}
+.live-candidate>span{white-space:nowrap;font-size:10px;font-weight:750;letter-spacing:.7px;color:#eeb99c}
+.live-candidate.qualified{border-color:#356755}.live-candidate.qualified>span{color:#6be3b3}
+@media(max-width:780px){.live-readiness-grid{grid-template-columns:1fr}.live-parity-heading{flex-direction:column}.live-parity-heading button{width:100%}.live-preflight,.live-parity{padding:17px}.live-candidate{align-items:start;flex-direction:column}.live-candidate>span{white-space:normal}}
