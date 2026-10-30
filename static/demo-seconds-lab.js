@@ -8,6 +8,7 @@
  const button=$('demo-seconds-start'),setStatus=s=>{$('demo-seconds-status').textContent=s},
   mode=s=>{$('demo-seconds-mode').textContent=s};
  let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0;
+ let latestQuotes={};
  const intelligence=I.create();
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return A.initial()}}
  wallet=read();
@@ -18,22 +19,24 @@
   catch{halt('Demo wallet storage unavailable. Virtual trading paused without claiming a fill.');return false}
  }
  function renderAccount(){
-  const s=A.stats(wallet),a=I.audit(wallet.ledger.closed);
+  const s=A.stats(wallet,Date.now(),latestQuotes),a=I.audit(wallet.ledger.closed);
   const core=a.trailingWinRatePct===null?'—':a.trailingWinRatePct.toFixed(1)+'%';
   $('demo-scalp-intel-status').textContent='LAST '+a.latest20+' CLOSED TRADES · '+core+' win rate · '+money(a.recentNetUsd)+' estimated net · '+a.lossStreak+' consecutive losses'+
    (a.globalPauseUntil>Date.now()?' · NEW ENTRIES PAUSED: '+a.globalReason:'');
   $('demo-scalp-intel-costs').textContent='Modeled fees + slippage '+money(a.observedCostsUsd)+' on '+a.recordsWithCosts+' recorded trades · '+
    'observed break-even win rate '+a.breakEvenWinPct+'% (theoretical baseline 60%) · '+
+   ' · last 20 average '+(a.latest20?money(a.recentNetUsd/a.latest20):'—')+' net/trade · '+
    (a.validatedEdge?'Validated':'No proven profitable edge');
   const worst=a.markets.slice(0,4);
   $('demo-scalp-intel-markets').textContent=worst.length?('Lowest-performing observed pairs: '+worst.map(x=>x.symbol+' '+x.trades+' trades / '+money(x.netUsd)+
    (x.quarantineUntil>Date.now()?' (cooldown)':'')).join(' · ')):
    'Market-by-market loss analysis appears once virtual trades are completed.';
 
-  $('demo-seconds-equity').textContent=money(s.equity);$('demo-seconds-net').textContent=money(s.totalNetUsd);
+  $('demo-seconds-equity').textContent=s.estimatedEquity===null?'— (open position unpriced)':money(s.estimatedEquity);$('demo-seconds-net').textContent=money(s.totalNetUsd);
   $('demo-seconds-trades').textContent=s.closedTrades;
   $('demo-seconds-wins').textContent=s.winRatePct===null?'—':s.winRatePct.toFixed(1)+'%';
-  $('demo-seconds-position').textContent=s.open?s.open.side+' '+s.open.symbol+' · $90 virtual open':'No open virtual position';
+  $('demo-seconds-position').textContent=s.open?s.open.side+' '+s.open.symbol+' · $90 virtual open · '+
+   (s.openMarkPriced?'estimated unrealized '+money(s.unrealizedNetUsd):'waiting for an executable quote'):'No open virtual position';
   $('demo-seconds-risk').textContent=s.entryBlock||'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · 3-second cooldown · 1 position';
   const body=$('demo-seconds-history');body.replaceChildren();
   const recent=[...wallet.ledger.closed].reverse().slice(0,10);
@@ -88,6 +91,7 @@
    reviewed=intelligence.update(preSignals,histories,wallet.ledger.closed,now),
    results=reviewed.signals,
    quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
+  latestQuotes=quotes;
   const out=A.step(wallet,{now,signals:results,quotes,connected:true});
   if(out.events.length){
    wallet=out.account;
