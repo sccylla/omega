@@ -36,6 +36,9 @@
     },
     "api/manual-live.js": {
       "maxDuration": 60
+    },
+    "api/auto-live.js": {
+      "maxDuration": 60
     }
   },
   "headers": [
