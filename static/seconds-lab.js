@@ -21,7 +21,7 @@ function stop(message){
  ++epoch;active=false;connecting=false;
  try{if(ws){ws.onopen=null;ws.onclose=null;ws.onerror=null;ws.onmessage=null;ws.close()}}catch{}
  ws=null;engine=null;
- if(ledger.open){ledger=S.interrupt(ledger);save()}
+ if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}
  button.textContent='Start seconds scanner';setMode('OFFLINE · RESEARCH ONLY');
  status(message||'Paused. No public WebSocket updates are being collected, and no funded trading behavior was changed.');
  displayShadow();
