@@ -107,7 +107,7 @@ test('public API applies demo history policy explicitly and defaults to strict l
  const evidencePath=require.resolve('../lib/market-evidence'),apiPath=require.resolve('../api/decision'),previous=require.cache[evidencePath].exports;
  const e=require('./fixtures/advanced-evidence').evidence(Date.now());e.five=e.five.slice(-500);
  try{
-  require.cache[evidencePath].exports={...previous,collectEvidence:async()=>e};delete require.cache[apiPath];const handler=require(apiPath);
+  const options=[];require.cache[evidencePath].exports={...previous,collectEvidence:async(_,opt)=>{options.push(opt);return e}};delete require.cache[apiPath];const handler=require(apiPath);
   for(const mode of [undefined,'live','demo']){
    const res={setHeader(){},status(n){this.code=n;return this},json(d){this.body=d;return this}};
    await handler({method:'GET',query:{symbol:'XRP',...(mode?{mode}:{})}},res);
@@ -115,5 +115,7 @@ test('public API applies demo history policy explicitly and defaults to strict l
    assert.equal(res.body.decision.executionPolicy,mode==='demo'?'DEMO_FORWARD_TEST':'LIVE_STRICT');
    assert.equal(res.body.decision.notional,mode==='demo'?100:10);
   }
+  const res={setHeader(){},status(n){this.code=n;return this},json(d){this.body=d;return this}};
+  await handler({method:'GET',query:{symbol:'XRP',mode:'demo',fresh:'1'}},res);assert.equal(res.code,200);assert.equal(options.at(-1).fresh,true);
  }finally{require.cache[evidencePath].exports=previous;delete require.cache[apiPath]}
 });

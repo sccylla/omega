@@ -27,8 +27,8 @@
   }
   $('decision-limits').textContent=v.caveat||v.limitations||'Historical prices cannot reproduce old order books, funding, latency or actual fills. This is limited evidence, not a profit forecast.';
  }
- async function analyze(symbol,{signal,mode='live'}={}){
-  const response=await fetch('/api/decision?'+new URLSearchParams({symbol,mode}),{cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
+ async function analyze(symbol,{signal,mode='live',fresh=false}={}){
+  const response=await fetch('/api/decision?'+new URLSearchParams({symbol,mode,...(fresh?{fresh:'1'}:{})}),{cache:'no-store',signal:signal?AbortSignal.any([signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000)});
   const data=await response.json();
   if(!response.ok)throw Error(data.error||'Market evidence is unavailable');
   if(!data.decision||typeof data.decision!=='object')throw Error('Invalid market decision response');

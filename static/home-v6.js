@@ -6,8 +6,7 @@ const SYMBOLS=['BTC','ETH','SOL'];
 const money=n=>(n<0?'−$':'$')+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const price=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const htmlEscape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let saved;try{saved=JSON.parse(localStorage.getItem(STORAGE)||'null')}catch{};
-let account=E.restore(saved),quotes={},series={},latestTime={},lastRefresh=0,loading=false;
+let account=window.OmegaAccount.read(),quotes={},series={},latestTime={},lastRefresh=0,loading=false;
 function chartSVG(rows){
  const candles=(rows||[]).filter(r=>Number.isFinite(r[4])&&r[4]>0);if(candles.length<4)return '<div class="chart-loading">Historical chart unavailable</div>';
  const ys=candles.map(r=>r[4]),min=Math.min(...ys),max=Math.max(...ys),margin=(max-min)*.15||max*.0001;
@@ -118,5 +117,6 @@ $('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your vi
 window.addEventListener('omega:paper-updated',e=>{account=e.detail;render()});
 render();updateSelected();quotesRefresh();homeOpportunities();
 setInterval(()=>{if(!document.hidden&&['demo','overview'].includes(location.hash.slice(1)))quotesRefresh()},25000);
-window.addEventListener('storage',e=>{if(e.key===STORAGE){let next;try{next=JSON.parse(e.newValue||'null')}catch{};account=E.restore(next);render()}});
+window.OmegaAccount.ready.then(()=>{account=window.OmegaAccount.read();render()});
+window.addEventListener('storage',e=>{if(e.key===STORAGE){account=window.OmegaAccount.read();render()}});
 })();

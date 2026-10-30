@@ -7,6 +7,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const auth = require('../lib/bybit-demo');
 const {TradingWorker,setController} = require('../lib/trading-worker');
+const {FilePaperStore,setLocalStore,configuredStore,handleStore}=require('../lib/paper-store');
 const directory=process.env.OMEGA_WORKER_DATA_DIR||path.join(root,'.omega-data');
 fs.mkdirSync(directory,{recursive:true,mode:0o700});
 const lock=path.join(directory,'worker.lock');
@@ -14,9 +15,10 @@ const lockFd=fs.openSync(lock,'wx',0o600);
 fs.writeSync(lockFd,String(process.pid));
 const worker=new TradingWorker({directory});
 setController(worker);
+setLocalStore(new FilePaperStore(directory));
 const timer=setInterval(()=>worker.cycle(),15000);
 const config = require(path.join(root, 'vercel.json'));
-const apis = new Set(['market','demo','quant','intelligence','forex-demo','scanner','live','bot','decision','quote']);
+const apis = new Set(['market','demo','paper','quant','intelligence','forex-demo','scanner','live','bot','decision','quote']);
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
 const server = http.createServer(async (req, res) => {
   res.status = code => { res.statusCode = code; return res; };
@@ -32,13 +34,13 @@ const server = http.createServer(async (req, res) => {
         for (const h of rule.headers) res.setHeader(h.key, h.value);
       }
     }
-    if (url.pathname === '/worker/control') {
+    if (['/worker/control','/worker/paper'].includes(url.pathname)) {
       const token=process.env.OMEGA_WORKER_TOKEN;
       if(!token||token.length<32||!auth.safeCompare(req.headers.authorization||'','Bearer '+token)) return res.status(401).json({error:'Worker authentication required'});
-      if(req.method==='GET') return res.status(200).json(worker.status());
+      if(req.method==='GET'){if(url.pathname==='/worker/paper'){const result=await handleStore(configuredStore(),'GET');return res.status(result.status).json(result.body)}return res.status(200).json(worker.status())}
       if(req.method!=='POST') return res.status(405).json({error:'GET or POST required'});
-      let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>4096)return res.status(413).json({error:'Body too large'})}
-      try{return res.status(200).json(await worker.control(JSON.parse(body)))}catch(e){return res.status(409).json({error:e.message})}
+      let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>(url.pathname==='/worker/paper'?65536:4096))return res.status(413).json({error:'Body too large'})}
+      try{if(url.pathname==='/worker/paper'){const result=await handleStore(configuredStore(),'POST',JSON.parse(body));return res.status(result.status).json(result.body)}return res.status(200).json(await worker.control(JSON.parse(body)))}catch(e){return res.status(e.status||409).json({error:e.message})}
     }
     if (url.pathname.startsWith('/api/')) {
       const name = url.pathname.slice(5).replace(/\.js$/, '');

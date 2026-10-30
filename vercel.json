@@ -1,6 +1,9 @@
 {
   "version": 2,
   "functions": {
+    "api/paper.js": {
+      "maxDuration": 15
+    },
     "api/bot.js": {
       "maxDuration": 25
     },

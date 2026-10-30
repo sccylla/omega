@@ -121,3 +121,9 @@ test('demo history advisory never bypasses current market data, direction, sprea
  }
  const e=evidence();e.five=e.five.slice(-500);assert.equal(decide(e,{now:NOW,mode:'demo',side:'SELL'}).eligible,false);
 });
+test('an executable quote beyond the signal ATR blocks a late entry even with a coherent narrow book',()=>{
+ const e=evidence(),scale=1.0049;
+ e.book.b=e.book.b.map(([price,qty])=>[String(Number(price)*scale),qty]);e.book.a=e.book.a.map(([price,qty])=>[String(Number(price)*scale),qty]);
+ e.ticker.bid1Price=e.book.b[0][0];e.ticker.ask1Price=e.book.a[0][0];
+ const plan=decide(e,{now:NOW,mode:'demo'});assert.equal(plan.eligible,false);assert.ok(plan.blockers.some(x=>x.includes('Executable price still fits the signal')));
+});

@@ -11,16 +11,24 @@ test('simulated stop triggers only after a quote check',()=>{let s=P.open(P.init
 test('manual take profit remains separate from automatic positive-profit exits',()=>{let s=P.open(P.initial(),{BTC:100},{symbol:'BTC',side:'BUY',notional:100});s=P.applyQuote(s,{BTC:100.5});assert.equal(s.positions.length,1);s=P.applyQuote(s,{BTC:104});assert.equal(s.closed[0].reason,'Target simulated')});
 test('daily 2% loss lock blocks a new trade',()=>{const s={...P.initial(),cash:97.9};assert.throws(()=>P.open(s,{BTC:100},{symbol:'BTC',side:'BUY',notional:100}),/daily virtual loss limit/i)});
 test('old demo versions and corrupted storage reset to $100',()=>{for(const saved of [{version:4,cash:-1},{...P.initial(),version:6,cash:10000}])assert.equal(P.restore(saved).cash,100)});
-test('positive-profit exits wait for fees and slippage to be covered in both directions',()=>{
+test('automatic profit exits wait for at least $5 net after fees and slippage in both directions',()=>{
  for(const side of ['BUY','SELL']){
   let s=P.open(P.initial(),{XRP:1},{symbol:'XRP',side,notional:100,auto:true,closeOnProfit:true,targetNet:5,slippageBps:4,entryEvidence:{strategy:'evidence-v11'}});
   s=P.applyQuote(s,{XRP:side==='BUY'?1.001:.999});assert.equal(s.positions.length,1);
-  s=P.applyQuote(s,{XRP:side==='BUY'?1.003:.997});assert.equal(s.positions.length,0);assert.ok(s.closed[0].netRaw>=.01);assert.match(s.closed[0].reason,/Positive net profit/);assert.ok(s.cash>100);
+  s=P.applyQuote(s,{XRP:side==='BUY'?1.003:.997});assert.equal(s.positions.length,1);
+  s=P.applyQuote(s,{XRP:side==='BUY'?1.06:.94});assert.equal(s.positions.length,0);assert.ok(s.closed[0].netRaw>=5);assert.match(s.closed[0].reason,/Net profit target/);assert.ok(s.cash>105);
   s=P.open(s,{XRP:1},{symbol:'XRP',side,notional:100,auto:true,closeOnProfit:true});assert.equal(s.positions.length,1);
  }
 });
 test('a saved profitable-close policy survives restore and never bypasses a losing stop',()=>{
  let s=P.open(P.initial(),{BTC:100},{symbol:'BTC',side:'BUY',notional:100,auto:true,closeOnProfit:true,entryEvidence:{strategy:'evidence-v11'}});
- s=P.restore(JSON.parse(JSON.stringify(s)));assert.equal(s.positions[0].closeOnProfit,true);
+ s=P.restore(JSON.parse(JSON.stringify(s)));assert.equal(s.positions[0].closeOnProfit,false);assert.ok(s.positions[0].targetNet>=5);
  s=P.applyQuote(s,{BTC:98});assert.equal(s.positions.length,0);assert.ok(s.closed[0].netRaw<0);assert.equal(s.closed[0].reason,'Stop simulated');
+});
+test('existing one-cent positions upgrade without resetting balance, trades or protective stops',()=>{
+ let s=P.open(P.initial(),{BTC:100},{symbol:'BTC',side:'BUY',notional:100,auto:true,entryEvidence:{strategy:'evidence-v11'}});
+ s.positions[0].closeOnProfit=true;s.positions[0].targetNet=.01;const cash=s.cash,stop=s.positions[0].stop,id=s.positions[0].id;
+ s=P.restore(s);assert.equal(s.cash,cash);assert.equal(s.positions[0].id,id);assert.equal(s.positions[0].stop,stop);assert.equal(s.positions[0].targetNet,5);
+ s=P.applyQuote(s,{BTC:100.5});assert.equal(s.positions.length,1);
+ s.positions[0].targetNet=8;s=P.applyQuote(s,{BTC:106});assert.equal(s.positions.length,1);s=P.applyQuote(s,{BTC:109});assert.ok(s.closed[0].netRaw>=8);
 });

@@ -11,7 +11,7 @@ module.exports=async(req,res)=>{
   if(!['demo','live'].includes(mode))throw Error('Invalid mode');
  }catch{return res.status(400).json({error:'Use a supported USDT market, optional BUY or SELL direction, and demo or live mode'})}
  try{
-  const evidence=await collectEvidence(symbol);
+  const evidence=await collectEvidence(symbol,{fresh:req.query?.fresh==='1'});
   const {decide}=require('../lib/advanced-decision');
   return res.status(200).json({symbol,decision:decide(evidence,{side,mode,now:Date.now(),notional:mode==='demo'?100:10}),observedAt:evidence.observedAt});
  }catch{return res.status(502).json({error:'Market evidence decision is temporarily unavailable',symbol})}

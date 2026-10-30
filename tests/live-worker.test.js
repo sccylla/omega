@@ -185,3 +185,8 @@ test('a demo forward-test plan cannot authorize an order from the real worker',a
  worker.analyze=async()=>({...await original(),executionPolicy:'DEMO_FORWARD_TEST'});
  await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.equal(worker.status().active,false);assert.match(worker.status().message,/Demo forward-test decisions cannot authorize real orders/);
 });
+test('a candidate whose direction flips during the fresh check cannot enter',async t=>{
+ const {worker,broker}=setup(t),original=worker.analyze;let calls=0;
+ worker.analyze=async()=>({...await original(),side:++calls===1?'BUY':'SELL'});
+ await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);
+});
