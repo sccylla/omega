@@ -41,3 +41,7 @@ services:
         sync: false
       - key: OMEGA_TELEGRAM_OWNER_CHAT_ID
         sync: false
+      # Explicit opt-in for ONE owner-confirmed $15 real order at a time.
+      # Never enabled by deploying code.
+      - key: OMEGA_TELEGRAM_REAL_ORDERS_ENABLED
+        value: "false"
