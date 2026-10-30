@@ -41,7 +41,10 @@
        next=out.state;settled+=Number(out.changed);if(out.changed)save(next);
       }
       if(!running)continue;
-      const newest=await fetchData('/api/intelligence?market=futures&asset='+asset+'&validation=shadow',AbortSignal.timeout(20000));
+      const bucket=Math.floor(Date.now()/300000),mark='omega_shadow_checked_'+symbol;
+      if(Number(localStorage.getItem(mark))===bucket)continue;
+      const newest=await fetchData('/api/intelligence?market=futures&asset='+asset+'&validation=shadow',AbortSignal.timeout(25000));
+      localStorage.setItem(mark,String(bucket));
       const x=L.accept(next,newest,Date.now());
       next=x.state;if(x.accepted){written++;save(next)}
      }catch(e){errors.push(asset+': '+String(e.message||'feed error').slice(0,95))}

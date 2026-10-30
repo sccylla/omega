@@ -10,8 +10,8 @@ if(!['forex','futures'].includes(market)||market==='futures'&&!/^[A-Z0-9]{2,20}$
 try{
 if(validation==='shadow'){
  if(market!=='futures'||!['BTC','ETH','SOL'].includes(asset))return res.status(400).json({error:'Shadow research supports BTC, ETH and SOL futures only'});
- const [bars,quote]=await Promise.all([bybitBars(asset),collectQuote(asset+'USDT')]);
- return res.status(200).json(makeForecast(bars,{asset,quote,now:Date.now()}));
+ const [collection,quote]=await Promise.all([history.readHistory(asset+'USDT',{days:7}),collectQuote(asset+'USDT')]);
+ return res.status(200).json(makeForecast(collection.bars,{asset,quote,now:Date.now()}));
 }
 if(validation==='walkforward'&&market!=='futures')return res.status(400).json({error:'Walk-forward evaluation currently supports Bybit futures only'});
 if(validation==='adaptive'&&market!=='futures')return res.status(400).json({error:'Long-history adaptive research currently supports Bybit futures only'});
