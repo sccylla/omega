@@ -44,7 +44,7 @@
    }
    if(!Array.isArray(data)||data.length>1024)return false;
    for(const trade of data){
-    if(trade.s!==record.symbol||!['Buy','Sell'].includes(trade.S))continue;
+    if(trade.s!==record.symbol||!['Buy','Sell'].includes(trade.S)||trade.BT===true||trade.RPI===true)continue;
     const t=Number(trade.T),price=Number(trade.p),qty=Number(trade.v),id=String(trade.i||'');
     if(!finite(t)||t<=0||t>now+2500||now-t>5500||!finite(price)||price<=0||!finite(qty)||qty<=0||!id||id.length>180||record.tradeIds.has(id))continue;
     record.trades.push({t,usd:price*qty,dir:trade.S==='Buy'?1:-1,id});
@@ -117,7 +117,7 @@
     move5Bps:move5,move15Bps:move15,move30Bps:move30,range30Bps:range30,matchedTrades15s:count,flowPressure:pressure,reason:reasons[0]||'Unusual short-term move with cost, liquidity and flow checks',reasons,
     meaning:'Microstructure eligibility heuristic, NOT a forecast, win probability or live trading authorization'};
   }
-  return {symbols:list,ingest,execution,observation};
+  return {symbols:list,ingest,execution,observation,history:symbol=>(stores[symbol]?.midHistory||[]).map(x=>({...x}))};
  }
  return {create,validSymbols,MIN_NOTIONAL,GOAL_NET,MAKERLESS_TAKER,EXTRA_SLIP};
 });

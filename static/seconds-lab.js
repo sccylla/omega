@@ -10,7 +10,7 @@ const usd=v=>Number.isFinite(v)?(v<0?'−$':'$')+Math.abs(v).toFixed(2):'—';
 const bps=v=>Number.isFinite(v)?v.toFixed(1)+' bp':'—';
 const read=()=>{try{return S.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return S.init()}};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(ledger));return true}catch{stop('Shadow storage unavailable; scanner halted to avoid fabricated statistics');return false}};
-ledger=read();if(ledger.open){ledger=S.interrupt(ledger);save()}
+ledger=read();if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}
 function displayShadow(){
  const stat=S.stats(ledger);$('seconds-net').textContent=usd(stat.netUsd);
  $('seconds-shadow-state').textContent=ledger.open?ledger.open.side+' '+ledger.open.symbol+' · $90 virtual position':'No virtual position';
@@ -99,13 +99,14 @@ function connect(myEpoch){
 function start(){
  if(active){stop('Seconds scanner paused manually.');return}
  if(!window.WebSocket)return status('This browser does not support WebSocket market streams.');
- if(document.hidden)return status('Open the Real Account tab in a visible browser before starting seconds monitoring.');
+ if(document.hidden||document.body.dataset.account!=='real')return status('Switch to the Real account view and keep the tab visible before starting seconds research.');
  try{symbols=E.validSymbols($('seconds-pairs').value);engine=E.create(symbols)}catch(e){return status(e.message)}
  active=true;button.textContent='Pause seconds scanner';++epoch;
  const id=epoch;connect(id);
 }
 button.addEventListener('click',start);
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&active)stop('Paused when tab became hidden: seconds research cannot continue without a visible live feed.')});
+window.addEventListener('omega:account-mode',()=>{if(active&&document.body.dataset.account!=='real')stop('Seconds scanner paused after leaving the Real account view.')});
 window.addEventListener('beforeunload',()=>{active=false;if(ledger.open){ledger=S.interrupt(ledger);try{localStorage.setItem(KEY,JSON.stringify(ledger))}catch{}}});
 setInterval(()=>{
  if(!active||!engine||document.hidden)return;
