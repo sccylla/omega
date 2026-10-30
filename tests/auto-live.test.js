@@ -27,7 +27,7 @@ test('real autopilot arming is explicit, one hour, authenticated and bound to lo
  assert.equal(f.writes.length,0);
  const token=armed.data.token;
  assert.ok(verifyArm({headers:{cookie:'owner'}},token,env,auth,now));
- assert.throws(()=>verifyArm({headers:{cookie:'wrong'}},token,env,auth,now),/session/);
+ assert.throws(()=>verifyArm({headers:{cookie:'wrong'}},token,env,auth,now),/signing in|session/);
  assert.throws(()=>verifyArm({headers:{cookie:'owner'}},token,env,auth,now+3600001),/expired/);
 });
 test('fresh strict live entry has exchange TP/SL, requires arm and rejects duplicate positions',async()=>{
