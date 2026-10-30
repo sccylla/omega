@@ -23,7 +23,7 @@
   if(reasons.length)return {...signal,state:'WAIT',side:null,feasibilityBps:range,feasibilityThresholdBps:threshold,
    reason:reasons[0],reasons:[...reasons,...(signal.reasons||[])]};
   return {...signal,feasibilityBps:range,feasibilityThresholdBps:threshold,
-   meaning:'Demo-only full-target feasibility check. Historical price range is not a forward forecast, entry authorization or profitability validation'};
+   meaning:'Demo-only full-target feasibility check; historical range is not a forecast of success and not a forward forecast, entry authorization or profitability validation'};
  }
  return {filter,MIN_LOOKBACK_SECONDS};
 });
