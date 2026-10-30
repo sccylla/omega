@@ -4,6 +4,7 @@
 // breaker and a 3-second confirmation window. Never controls funded orders.
 (function(root,factory){const api=factory();if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoScalpIntelligence=api})(typeof window!=='undefined'?window:null,function(){
  const MIN_CONFIRMATIONS=3,QUARANTINE_MS=45*60000,GLOBAL_PAUSE_MS=60*60000;
+ const DIRECTION_PAUSE_MS=6*60*60000;
  const finite=Number.isFinite,round=(n,d=3)=>Number(n.toFixed(d));
  function audit(raw,now=Date.now()){
   const trades=(Array.isArray(raw)?raw:[]).filter(t=>t&&typeof t.symbol==='string'&&
@@ -34,6 +35,21 @@
   }
   const markets=[...byMarket.values()].map(t=>({...t,netUsd:round(t.netUsd),
    winRatePct:round(100*t.wins/t.trades,1)})).sort((a,b)=>a.netUsd-b.netUsd);
+  // Direction-aware quarantine based only on trades already CLOSED before now.
+  // This controls further losses; it is not a fitted predictive model.
+  const buckets=new Map();
+  for(const t of trades){
+   const key=t.symbol+':'+t.side;
+   const bucket=buckets.get(key)||{symbol:t.symbol,side:t.side,rows:[]};
+   bucket.rows.push(t);buckets.set(key,bucket);
+  }
+  const directions=[...buckets.values()].map(b=>{
+   const rows=b.rows.slice(-12),net=rows.reduce((n,t)=>n+t.net,0);
+   const losses=rows.filter(t=>t.net<=0).length,lastClose=rows.at(-1).closedAt;
+   const poor=rows.length>=6&&losses>=4&&net<=-1;
+   return {symbol:b.symbol,side:b.side,trades:rows.length,netUsd:round(net),
+    quarantineUntil:poor&&lastClose+DIRECTION_PAUSE_MS>now?lastClose+DIRECTION_PAUSE_MS:0};
+  });
   const avgWin=winners.length?gains/winners.length:null,avgLoss=losers.length?losses/losers.length:null;
   const breakEvenWinPct=avgWin!==null&&avgLoss!==null&&avgWin+avgLoss>0?
    round(100*avgLoss/(avgWin+avgLoss),1):60;
@@ -42,7 +58,7 @@
    trailingWinRatePct:recent.length?round(100*winners.length/recent.length,1):null,
    avgWinUsd:avgWin===null?null:round(avgWin,4),avgLossUsd:avgLoss===null?null:round(avgLoss,4),
    breakEvenWinPct,observedCostsUsd:round(costs),recordsWithCosts:recent.filter(t=>finite(t.fees)&&finite(t.slippage)).length,
-   lossStreak,globalPauseUntil,globalReason,markets,validatedEdge:false,
+   lossStreak,globalPauseUntil,globalReason,markets,directions,validatedEdge:false,
    meaning:'Descriptive device-local Demo fills; the 60% theoretical breakeven assumes +$0.50 winners and -$0.75 losers. Historical winning rate cannot predict future wins.'};
  }
  function create(){
@@ -55,6 +71,8 @@
     if(report.globalPauseUntil>now)why.push(report.globalReason+'; cooling down until '+new Date(report.globalPauseUntil).toLocaleTimeString());
     const market=report.markets.find(x=>x.symbol===s.symbol);
     if(market?.quarantineUntil>now)why.push('This pair has repeated losing trades; 45-minute quarantine');
+    const direction=report.directions.find(x=>x.symbol===s.symbol&&x.side===s.side);
+    if(direction?.quarantineUntil>now)why.push('This pair/direction has negative net results in the last 6–12 closes; six-hour risk cooldown');
     const history=histories?.[s.symbol]||[],samples=history.filter(x=>x&&finite(x.mid)&&x.mid>0&&finite(x.s)&&x.s>=second-60&&x.s<=second);
     if(samples.length<38||second-(samples.at(-1)?.s||0)>3)why.push('Need fresh, continuous price observations');
     else{
@@ -62,9 +80,9 @@
      const position=(mid-low)/(high-low||mid*.00001),direction=s.side==='BUY'?1:-1;
      // Do not chase the very last edge of a fast move, especially when
      // 5-second impulse is already stretched; a retest may be less costly.
-     if(direction>0&&position>.96&&s.move5Bps>Math.max(5,s.requiredMoveBps*.13))
+     if(direction>0&&position>.82&&s.move5Bps>Math.max(5,s.requiredMoveBps*.10))
       why.push('Late long at the upper extreme of a 60s volatility burst');
-     if(direction<0&&position<.04&&-s.move5Bps>Math.max(5,s.requiredMoveBps*.13))
+     if(direction<0&&position<.18&&-s.move5Bps>Math.max(5,s.requiredMoveBps*.10))
       why.push('Late short at the lower extreme of a 60s volatility burst');
     }
     const prior=streak.get(s.symbol);
