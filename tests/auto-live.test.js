@@ -51,7 +51,7 @@ test('real-money auto execution cannot use demo rules or bypass server kill swit
   {analyze:async()=>({...plan(),eligible:false})},
   {analyze:async()=>({...plan(),expiresAt:now-100})}
  ]){
-  const h=factory({env:x.env||env,broker:f.broker,analyze:x.analyze||async()=>plan(),authentication:auth,clock:()=>now});
+  const h=factory({env:x.env||env,broker:f.broker,analyze:x.analyze||(async()=>plan()),authentication:auth,clock:()=>now});
   const r=await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token});
   assert.notEqual(r.code,202);
  }
