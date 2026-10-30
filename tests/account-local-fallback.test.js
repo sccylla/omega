@@ -18,7 +18,7 @@ function fixture({authenticated=true,responses=[]}={}){
  const window={OmegaPaper:E,dispatchEvent(){}},document={getElementById:id=>id==='paper-sync-state'?node:null,addEventListener(){}};
  const localStorage={getItem:key=>storage.get(key)??null,setItem:(key,value)=>storage.set(key,value)};
  const navigator={locks:{request:async(name,options,callback)=>callback()}};
- vm.runInNewContext(code,{window,document,localStorage,navigator,fetch,AbortController,DOMException,CustomEvent:class{},setTimeout,clearTimeout,setInterval:()=>0,Date,JSON,Promise});
+ vm.runInNewContext(code,{window,document,localStorage,navigator,fetch,AbortController,DOMException,Event:class{},CustomEvent:class{},setTimeout,clearTimeout,setInterval:()=>0,Date,JSON,Promise});
  return {account:window.OmegaAccount,node,storage,E};
 }
 test('signed-in demo stays writable in device-only mode when Redis was never configured',async()=>{
