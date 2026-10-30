@@ -6,22 +6,27 @@
  const init=()=>({version:VERSION,closed:[],incomplete:0,open:null,lastClose:0});
  const restore=s=>s&&s.version===VERSION&&Array.isArray(s.closed)&&s.closed.length<=MAX_RECORDS&&Number.isFinite(s.incomplete)&&Number.isFinite(s.lastClose)&&(!s.open||typeof s.open==='object')?JSON.parse(JSON.stringify(s)):init();
  const round=(n,d=4)=>Number(n.toFixed(d));
- function pnl(p,quote){
+ function breakdown(p,quote){
   const exit=p.side==='BUY'?quote.bidVwap:quote.askVwap,dir=p.side==='BUY'?1:-1,qty=p.notional/p.entry;
-  return dir*(exit-p.entry)*qty-(p.entry+exit)*qty*FEE-p.notional*SLIP*2;
+  const gross=dir*(exit-p.entry)*qty,fees=(p.entry+exit)*qty*FEE,slippage=p.notional*SLIP*2;
+  return {gross,fees,slippage,net:gross-fees-slippage};
  }
- function step(raw,{signals=[],quotes={},now=Date.now(),connected=true}={}){
+ function pnl(p,quote){return breakdown(p,quote).net}
+
+ function step(raw,{signals=[],quotes={},now=Date.now(),connected=true,maxHoldMs=45000}={}){
+  // Real Account research keeps its original 45s limit. Demo can use 180s.
+  const holdLimit=Number.isInteger(maxHoldMs)&&maxHoldMs>=45000&&maxHoldMs<=180000?maxHoldMs:45000;
   const s=restore(raw),events=[];
   if(s.open){
    const p=s.open,q=quotes[p.symbol];
    if(!connected||!q||now-q.observedAt>2300||q.observedAt>now+1000){
     if(now-p.openedAt>=4000||!connected){s.incomplete++;events.push({type:'INCOMPLETE',symbol:p.symbol});s.open=null;s.lastClose=now}
    }else if(now>p.openedAt){
-    const result=pnl(p,q),time=now-p.openedAt;
-    if(result>=.50||result<=-.75||time>=45000){
-     const reason=result>=.50?'Modeled $0.50 net TP':result<=-.75?'Modeled $0.75 stop':'45s time limit';
+    const breakdownValue=breakdown(p,q),result=breakdownValue.net,time=now-p.openedAt;
+    if(result>=.50||result<=-.75||time>=holdLimit){
+     const reason=result>=.50?'Modeled $0.50 net TP':result<=-.75?'Modeled $0.75 loss trigger':Math.round(holdLimit/1000)+'s time limit';
      const trade={symbol:p.symbol,side:p.side,openedAt:p.openedAt,closedAt:now,entry:p.entry,
-      exit:p.side==='BUY'?q.bidVwap:q.askVwap,net:round(result),reason,quality:p.quality,requiredMoveBps:p.requiredMoveBps};
+      exit:p.side==='BUY'?q.bidVwap:q.askVwap,net:round(result),gross:round(breakdownValue.gross),fees:round(breakdownValue.fees),slippage:round(breakdownValue.slippage),reason,quality:p.quality,requiredMoveBps:p.requiredMoveBps};
      s.closed=[...s.closed,trade].slice(-MAX_RECORDS);s.open=null;s.lastClose=now;events.push({type:'CLOSED',trade});
     }
    }
