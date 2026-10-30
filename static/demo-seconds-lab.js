@@ -25,8 +25,8 @@
   $('demo-scalp-intel-status').textContent='LAST '+a.latest20+' CLOSED TRADES · '+core+' win rate · '+money(a.recentNetUsd)+' estimated net · '+a.lossStreak+' consecutive losses'+
    (a.globalPauseUntil>Date.now()?' · NEW ENTRIES PAUSED: '+a.globalReason:'');
   $('demo-scalp-intel-costs').textContent='Modeled fees + slippage '+money(a.observedCostsUsd)+' on '+a.recordsWithCosts+' recorded trades · '+
-   'observed break-even win rate '+a.breakEvenWinPct+'% (theoretical baseline 60%) · '+
-   ' · last 20 average '+(a.latest20?money(a.recentNetUsd/a.latest20):'—')+' net/trade · '+
+   'observed break-even win rate '+a.breakEvenWinPct+'% (policy baseline '+(100*s.stopNet/(s.targetNet+s.stopNet)).toFixed(1)+'%) · '+
+   'last 20 average '+(a.latest20?money(a.recentNetUsd/a.latest20):'—')+' net/trade · '+
    (a.validatedEdge?'Validated':'No proven profitable edge');
   const worst=a.markets.slice(0,4);
   $('demo-scalp-intel-markets').textContent=worst.length?('Lowest-performing observed pairs: '+worst.map(x=>x.symbol+' '+x.trades+' trades / '+money(x.netUsd)+
