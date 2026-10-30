@@ -1,5 +1,5 @@
 'use strict';
-// More responsive *Demo-only* research trigger. The full $0.50 modeled net
+// More responsive *Demo-only* research trigger. The configured modeled net
 // exit target is NOT the minimum historical movement needed for entry.
 // Never use these experimental signals to authorize a funded Bybit order.
 (function(root,factory){const api=factory();if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoSecondsSignals=api})(typeof window!=='undefined'?window:null,function(){
@@ -35,7 +35,7 @@
   const ready=reasons.length===0;
   return {...q,state:ready?'WATCH':'WAIT',side:ready?(dir>0?'BUY':'SELL'):null,score,
    requiredMoveBps:raw.requiredMoveBps,entryMomentumBps:8,
-   reason:ready?'Exploratory Demo impulse qualifies; $0.50 net exit is NOT guaranteed':reasons[0],reasons};
+   reason:ready?'Exploratory Demo impulse qualifies; The configured net exit is NOT guaranteed':reasons[0],reasons};
  }
  return {evaluate};
 });
