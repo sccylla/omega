@@ -121,3 +121,7 @@ Public feeds require HTTPS access to `api.bybit.com` (default), with `www.okx.co
 
 Render's Starter service and disk may incur charges. The `autoDeployTrigger: off` setting prevents a subsequent push to GitHub from unexpectedly restarting the armed worker. For maintenance or incident response, pause new entries in the OMEGA dashboard, inspect account risk and Bybit positions, and handle in-flight orders explicitly. Do not treat Vercel or Render as guaranteed zero-outage execution.
 
+
+## Telegram-controlled $88 demo scalper
+
+OMEGA now includes an optional Telegram owner-only controller with Start/Pause, feed health, virtual balance, P&L, and notifications. It uses a separate persistent $88 virtual paper wallet and public Bybit prices; it **cannot place real-money orders**. The Telegram service requires a Telegram bot token and a single persistent Node worker; a Vercel-only deployment does not run the background Telegram bot. See [docs/telegram.md](docs/telegram.md) for BotFather setup and secure private configuration. Existing live trading remains independently disabled unless configured and authorized through its original protections.
