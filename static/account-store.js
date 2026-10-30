@@ -8,7 +8,7 @@
  function status(){return {mode,revision,error,writable:mode==='local'||mode==='cloud',shared:mode==='cloud'}}
  function render(){
   const node=document.getElementById('paper-sync-state');if(!node)return;
-  node.textContent=mode==='cloud'?'Synced account · Visible on your signed-in devices':mode==='local'?'Device-only demo · Sign in to sync your trades':mode==='checking'?'Checking account connection…':'Cloud sync unavailable · Trading paused. '+error;
+  node.textContent=mode==='cloud'?'Synced account · Visible on your signed-in devices':mode==='local'?(error?'Device-only demo · '+error:'Device-only demo · Sign in to sync your trades'):mode==='checking'?'Checking account connection…':'Cloud sync unavailable · Trading paused. '+error;
   node.dataset.state=mode;
   const importer=document.getElementById('paper-import-local');if(importer)importer.hidden=mode!=='cloud'||!shared||activity(shared)||!activity(local());
  }
@@ -30,7 +30,7 @@
     timer=setTimeout(()=>{controller.abort();reject(Error('Cloud account request timed out'))},10000);
     fetch(url,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:body?{'Content-Type':'application/json','X-OMEGA-REQUEST':'1'}:{},body:body?JSON.stringify(body):undefined}).then(async response=>{
      const data=await response.json();if(response.status===409&&data.account){publish(data);throw Error(data.error)}
-     if(!response.ok){const failure=Error(data.error||'Cloud demo account unavailable');failure.status=response.status;throw failure}return data;
+     if(!response.ok){const failure=Error(data.error||'Cloud demo account unavailable');failure.status=response.status;failure.storageUnconfigured=response.status===503&&data.configured===false;throw failure}return data;
     }).then(resolve,reject).finally(()=>signal?.removeEventListener('abort',cancel));
    });
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',cancel);controller.abort()}
@@ -53,9 +53,17 @@
    }else publish(data);
    error='';scope('cloud');render();updated(read());
   }catch(e){
-   error=e.message||'Connection failed';
-   if(mode==='checking'&&!e.status){scope('local')}else scope('blocked');
-   render();
+   if(e.storageUnconfigured&&mode!=='cloud'){
+    // The owner has not configured shared storage. Keep demo trading available
+    // on this device only; never claim cloud sync or fork an existing cloud ledger.
+    shared=null;revision=0;
+    error='Upstash Redis not connected. Virtual trades are saved on this device only.';
+    scope('local');updated(local());
+   }else{
+    error=e.message||'Connection failed';
+    if(mode==='checking'&&!e.status){scope('local')}else scope('blocked');
+    render();
+   }
   }finally{refreshing=false}
  }
  const ready=refresh({checkSession:true}).finally(()=>{settled=true});
