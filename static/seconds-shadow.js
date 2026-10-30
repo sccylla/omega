@@ -31,7 +31,7 @@
     const target=Number.isFinite(p.targetNet)?p.targetNet:.50,stop=Number.isFinite(p.stopNet)?p.stopNet:.75;
     if(result>=target||result<=-stop||(holdLimit!==null&&time>=holdLimit)){
      const reason=result>=target?'Modeled Math.round(holdLimit/1000)+'s time limit';
-     const trade={symbol:p.symbol,side:p.side,openedAt:p.openedAt,closedAt:now,entry:p.entry,
+     const trade={symbol:p.symbol,side:p.side,notional:p.notional,openedAt:p.openedAt,closedAt:now,entry:p.entry,
       exit:p.side==='BUY'?q.bidVwap:q.askVwap,net:round(result),gross:round(breakdownValue.gross),fees:round(breakdownValue.fees),slippage:round(breakdownValue.slippage),reason,quality:p.quality,requiredMoveBps:p.requiredMoveBps,entryEvidence:p.entryEvidence||null};
      s.closed=[...s.closed,trade].slice(-MAX_RECORDS);s.open=null;s.lastClose=now;events.push({type:'CLOSED',trade});
     }
