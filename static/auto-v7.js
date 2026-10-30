@@ -8,7 +8,7 @@
  const progress=s=>{if($('auto-progress'))$('auto-progress').textContent=s};
  function controls(){
   $('auto-state').textContent=running?'READY':'OFF';
-  $('auto-toggle').textContent=running?'Stop automatic entries':'Trade · scan all & enter $100';
+  $('auto-toggle').textContent=running?'Pause demo autopilot':'Start automatic DEMO trades';
   $('auto-toggle').classList.toggle('is-running',running);
  }
  async function load(symbol){
@@ -57,7 +57,7 @@
    $('auto-universe').textContent=Number(data.universe||0).toLocaleString();
    const {results,picks,coverage,summary,nextAfter}=await M.scanMarkets(data.rows||[],{
     analyze:(symbol,options)=>window.OmegaDecision.analyze(symbol,{...options,mode:'demo'}),
-    signal:run.signal,maxMs:30000,allowPartial:true,startAfter:cursor,selectionWindowMs:permitEntries?1200:null,
+    signal:run.signal,maxMs:30000,requestTimeoutMs:18000,concurrency:4,allowPartial:true,startAfter:cursor,selectionWindowMs:permitEntries?1200:null,
     isCancelled:()=>document.hidden||permitEntries&&(!running||document.body.dataset.account==='real'),
     canEnter:p=>{const a=A.read();return !a.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,''))&&!window.OmegaPortfolio.concentrated(p.side,p.metrics?.benchmarkCorrelation,a.positions)},
     onProgress:c=>progress('Pass '+pass+': '+c.screened+' markets screened · '+c.analyzed+' detailed results · '+c.qualified+' qualifying · '+c.rejected+' rejected for liquidity/spread · '+c.remaining+' awaiting detailed analysis')
@@ -77,7 +77,7 @@
    if(!results.length)list.textContent='No market qualifies for a closer look. Waiting is a decision.';
    $('auto-choice').textContent=picks.length?picks[0].symbol+' '+picks[0].side:'WAIT';
    if(display.length)window.OmegaDecision.render(display[0],display[0].symbol);
-   if(!picks.length){status('Pass '+pass+': '+(permitEntries?'No entry. ':'Scan only; trading is disabled for this scan. ')+M.explain(summary),permitEntries?'NO ENTRY':'SCAN ONLY');return}
+   if(!picks.length){status('Pass '+pass+': '+(permitEntries?'Autopilot remains active; no eligible virtual trade yet. ':'Analysis only; no order will be opened. ')+M.explain(summary),permitEntries?'WAITING FOR SETUP':'SCAN ONLY');return}
    if(!permitEntries){status('Analysis complete: '+picks.length+' candidate(s). Scan without trading never places orders; press Trade to enable automatic entries.','SCAN ONLY');return}
    const account=A.read();
    const candidate=picks.find(p=>!account.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,'')));

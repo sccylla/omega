@@ -110,7 +110,7 @@ test('demo can forward-test a current qualifying setup without twenty historical
  assert.equal(strict.eligible,false);assert.equal(live.eligible,false);assert.match(strict.reason,/Insufficient closed holdout trades/);
  assert.equal(demo.eligible,true);assert.equal(demo.executionPolicy,'DEMO_FORWARD_TEST');assert.equal(demo.validation.entryGate,'ADVISORY_DEMO');
  assert.equal(demo.validation.passed,false);assert.equal(demo.validation.tradeCount,0);assert.equal(demo.blockers.length,0);assert.ok(demo.warnings.length);
- assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,1);
+ assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,2);
  assert.ok(Math.abs(demo.targetNet-10*strict.targetNet)<1e-10);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
  assert.equal(decide(e,{now:NOW,mode:'unrecognized'}).eligible,false);
 });
@@ -126,4 +126,21 @@ test('an executable quote beyond the signal ATR blocks a late entry even with a 
  e.book.b=e.book.b.map(([price,qty])=>[String(Number(price)*scale),qty]);e.book.a=e.book.a.map(([price,qty])=>[String(Number(price)*scale),qty]);
  e.ticker.bid1Price=e.book.b[0][0];e.ticker.ask1Price=e.book.a[0][0];
  const plan=decide(e,{now:NOW,mode:'demo'});assert.equal(plan.eligible,false);assert.ok(plan.blockers.some(x=>x.includes('Executable price still fits the signal')));
+});
+
+test('demo may forward-test four-hour trend disagreement but strict live entry is still blocked',()=>{
+ const e=evidence();
+ const dir=decide(e,{now:NOW,mode:'demo'}).side;
+ e.fourHour=e.fourHour.map((bar,i)=>{
+  const base=12*(1-i*.00045),open=base,close=base*(1-.0001);
+  return [bar[0],open,open*1.0002,close*.9998,close,bar[5]];
+ });
+ const demo=decide(e,{now:NOW,mode:'demo'});
+ const strict=decide(e,{now:NOW,mode:'live'});
+ assert.equal(dir,'BUY');
+ assert.equal(demo.eligible,true);
+ assert.ok(demo.checks.some(c=>c.label.includes('4h trend')&&!c.pass&&c.required===false));
+ assert.ok(demo.warnings.some(c=>c.includes('Four-hour trend conflicts')));
+ assert.equal(strict.eligible,false);
+ assert.ok(strict.blockers.some(c=>c.includes('4h trend')));
 });
