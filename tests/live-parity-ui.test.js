@@ -9,14 +9,15 @@ test('real mode exposes explicit readiness checks and analysis-only candidate ac
  assert.match(html,/live-parity\.css/);
  assert.match(html,/no orders/i);
 });
-test('live preview can only issue public read-only requests and does not auto activate funded trading',()=>{
- assert.ok(script.includes('mode:\'live\''));
+test('live scanner is read-only until the user opens a signed preview and explicitly confirms a separate order',()=>{
+ assert.ok(script.includes("mode:'live'"));
  assert.ok(script.includes('/api/decision?'));
  assert.ok(script.includes('/api/scanner?'));
  assert.ok(script.includes('/api/live?action=status'));
- assert.ok(script.includes('/api/bot'));
- assert.ok(!script.includes("method:'POST'")&&!script.includes('method:"POST"'));
- assert.ok(!script.includes("action:'start'")&&!script.includes('START REAL $10 BOT'));
+ assert.ok(script.includes('/api/manual-live'));
+ assert.ok(script.includes("post:{action:'preview'"));
+ assert.ok(script.includes("post:{action:'execute',confirm:'PLACE REAL $10 TRADE'"));
+ assert.ok(!script.includes("action:'start'"));
 });
 test('production worker remains explicitly gated and exchange protective orders remain in code',()=>{
  const bot=fs.readFileSync(path.join(root,'lib/trading-worker.js'),'utf8');
