@@ -142,3 +142,35 @@ test('no private Bybit exchange URLs, live order keys or live trading permission
   }
  }
 });
+
+test('silent WebSocket is diagnosed and retried without allowing a phantom position',()=>{
+ let now=START,disconnected=0;
+ class FakeWebSocket{
+  constructor(){this.sent=[];this.wasClosed=false;FakeWebSocket.instance=this}
+  send(msg){this.sent.push(msg)}
+  close(){this.wasClosed=true}
+ }
+ const paper={lastFeedAt:0,state:{running:true,symbols:['BTCUSDT']},
+  disconnect(){disconnected++},tick(){return []},takeEvents(){return []}};
+ const feed=new PublicBybitDemoFeed({engine:paper,WebSocketCtor:FakeWebSocket,
+  clock:()=>now,onEvent:()=>{}});
+ try{
+  feed.start();
+  const socket=FakeWebSocket.instance;
+  socket.onopen();
+  assert.equal(feed.connected,true);
+  now=START+17000;
+  feed.cycle();
+  assert.equal(disconnected,1,'must diagnose connected-but-silent market feed');
+  assert.equal(feed.connected,false);
+  assert.equal(socket.wasClosed,true);
+ }finally{feed.stop()}
+});
+test('owner-only command set does not contain real-money or funded execution controls',async()=>{
+ const dir=temp();try{
+  const bot=new OmegaTelegramBot({directory:dir,env:{},WebSocketCtor:class {}});
+  assert.match((await bot.command('help')).text,/VIRTUAL TRADING ONLY/);
+  assert.match((await bot.command('live')).text,/Unknown command/);
+  assert.equal(bot.paper.state.running,false);
+ }finally{cleanup(dir)}
+});
