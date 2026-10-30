@@ -136,15 +136,25 @@
   if(now-lastDiagnostic>=9000&&!out.events.length){
    lastDiagnostic=now;
    const ready=results.filter(x=>x.state!=='NO_DATA'&&x.state!=='WARMING'),qualified=results.filter(x=>x.state==='WATCH');
+   const health=symbols.map(s=>engine.diagnostics(s,now)).filter(Boolean);
+   const books=health.filter(h=>h.executable).length,
+    trades=health.filter(h=>h.recentTrades>=12&&h.tradeAgeMs!==null&&h.tradeAgeMs<=2500).length,
+    warmed=health.filter(h=>h.historySpanSeconds>=58&&h.historySeconds>=36).length;
    const top=[...results].filter(x=>Number.isFinite(x.range30Bps)).sort((a,b)=>(b.score||0)-(a.score||0))[0];
-   const notes=top?.reasons?.slice(0,2).join(' | ')||'Waiting for fresh books, trades and an uninterrupted 60-second baseline';
+   const firstProblem=health.find(h=>h.reason!=='Live market data is ready');
+   const notes=top?.reasons?.slice(0,2).join(' | ')||
+    (firstProblem?firstProblem.symbol+': '+firstProblem.reason:'Waiting for fresh book and trade messages');
    const block=A.stats(wallet,now).entryBlock;
-   setStatus(block||('SCANNER ACTIVE · receiving quote and signal data from '+ready.length+'/'+symbols.length+' pairs · '+qualified.length+
-    ' qualifying signals. '+(top?top.symbol+' ('+top.score+'/100): ':'')+notes+
-    '. Move your mouse over any WAIT row to see every entry rule blocking it.'));
+   const dataState='BYBIT FEED · '+books+'/'+symbols.length+' valid executable order books · '+trades+'/'+symbols.length+
+    ' pairs with recent trade flow · '+warmed+'/'+symbols.length+' with complete 60s history';
+   setStatus(block?dataState+' · ENTRIES BLOCKED: '+block:
+    dataState+' · '+qualified.length+' qualified setups · '+(top?top.symbol+' ('+top.score+'/100): ':'')+
+     notes+'. A WAIT signal means trading conditions do not qualify; it is not a software failure.');
+
   }
   if(!out.risk.allowed&&!wallet.ledger.open)mode('DEMO RISK LIMIT / WAIT');
-  else mode(results.some(r=>r.state==='WATCH')?'DEMO SIGNAL WATCH':'DEMO LIVE FEED');
+  else if(!results.some(r=>r.state!=='NO_DATA'&&r.state!=='WARMING'))mode('FEED WARMING / WAIT');
+  else mode(results.some(r=>r.state==='WATCH')?'DEMO SIGNAL WATCH':'DEMO SCANNING / WAIT');
  }
  function connect(id){
   lastConnected=Date.now();mode('CONNECTING TO BYBIT');
@@ -154,7 +164,7 @@
    lastConnected=Date.now();
    const topics=symbols.flatMap(s=>['orderbook.50.'+s,'publicTrade.'+s]);
    for(let i=0;i<topics.length;i+=10)socket.send(JSON.stringify({op:'subscribe',args:topics.slice(i,i+10)}));
-   setStatus('Bybit connected across '+symbols.length+' pairs. Gathering 60 seconds of prices and trade flow. $90 virtual entries target +$0.50 estimated net, then rescan; no forced time exit. Loss trigger remains active.');
+   setStatus('WebSocket connected. Checking that '+symbols.length+' pairs actually deliver valid orderbooks and trade flow, then building a 60-second baseline. A network connection alone is not a qualified trading signal.');
   };
   socket.onmessage=event=>{
    if(id!==epoch||!active||document.hidden||typeof event.data!=='string'||event.data.length>900000)return;
@@ -198,7 +208,7 @@
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&active)halt('Seconds Demo paused when the tab became hidden. No fabricated exits.')});
  window.addEventListener('omega:account-mode',()=>{if(active&&document.body.dataset.account!=='demo')halt('Seconds Demo paused after switching accounts.')});
  window.addEventListener('beforeunload',()=>{active=false;if(wallet.ledger.open)wallet=A.interrupt(wallet);try{localStorage.setItem(KEY,JSON.stringify(wallet))}catch{}});
- setInterval(()=>{if(active)tick()},1000);
+ setInterval(()=>{if(active){try{tick()}catch(e){halt('Demo scanner stopped after a processing error: '+String(e?.message||e).slice(0,180)+'. Please report this message; no real funds were touched.')}}},1000);
  setInterval(()=>{if(active&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({op:'ping'}))},20000);
  renderAccount();
 })();

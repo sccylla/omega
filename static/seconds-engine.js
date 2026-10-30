@@ -11,7 +11,7 @@
   return a;
  };
  function create(symbols,{maxSymbols=5}={}){
-  const list=validSymbols(symbols,{maxSymbols}),stores=Object.fromEntries(list.map(symbol=>[symbol,{symbol,bids:new Map(),asks:new Map(),bookTime:0,bookSeq:0,bookReady:false,midHistory:[],trades:[],tradeIds:new Set(),tradeTime:0,lastUpdate:0}]));
+  const list=validSymbols(symbols,{maxSymbols}),stores=Object.fromEntries(list.map(symbol=>[symbol,{symbol,bids:new Map(),asks:new Map(),bookTime:0,bookSeq:0,bookReady:false,midHistory:[],trades:[],tradeIds:new Set(),tradeTime:0,lastUpdate:0,acceptedBooks:0,acceptedTrades:0}]));
   function ingest(msg,now=Date.now()){
    if(!msg||typeof msg.topic!=='string'||!finite(now))return false;
    const parsed=/^(orderbook\.50|publicTrade)\.([A-Z0-9]+USDT)$/.exec(msg.topic);
@@ -35,7 +35,7 @@
     }
     const bestBid=Math.max(...bids.keys()),bestAsk=Math.min(...asks.keys());
     if(!(bestBid>0&&bestAsk>bestBid)){record.bookReady=false;return false}
-    record.bids=bids;record.asks=asks;record.bookSeq=sequence;record.bookTime=ts;record.bookReady=true;record.lastUpdate=now;
+    record.bids=bids;record.asks=asks;record.bookSeq=sequence;record.bookTime=ts;record.bookReady=true;record.lastUpdate=now;record.acceptedBooks++;
     const mid=(bestBid+bestAsk)/2,second=Math.floor(ts/1000);
     const last=record.midHistory.at(-1);
     if(last&&last.s===second)last.mid=mid;
@@ -50,7 +50,7 @@
     const t=Number(trade.T),price=Number(trade.p),qty=Number(trade.v),id=String(trade.i||'');
     if(!finite(t)||t<=0||t>now+2500||now-t>5500||!finite(price)||price<=0||!finite(qty)||qty<=0||!id||id.length>180||record.tradeIds.has(id))continue;
     record.trades.push({t,usd:price*qty,dir:trade.S==='Buy'?1:-1,id});
-    record.tradeIds.add(id);record.tradeTime=Math.max(record.tradeTime,t);accepted++;
+    record.tradeIds.add(id);record.tradeTime=Math.max(record.tradeTime,t);accepted++;record.acceptedTrades++;
    }
    const cutoff=now-42000;
    while(record.trades.length&&(record.trades[0].t<cutoff||record.trades.length>5500)){
@@ -119,7 +119,26 @@
     move5Bps:move5,move15Bps:move15,move30Bps:move30,range30Bps:range30,matchedTrades15s:count,flowPressure:pressure,reason:reasons[0]||'Unusual short-term move with cost, liquidity and flow checks',reasons,
     meaning:'Microstructure eligibility heuristic, NOT a forecast, win probability or live trading authorization'};
   }
-  return {symbols:list,ingest,execution,observation,history:symbol=>(stores[symbol]?.midHistory||[]).map(x=>({...x}))};
+  function diagnostics(symbol,now=Date.now()){
+   const r=stores[symbol];
+   if(!r)return null;
+   const quote=execution(symbol,now);
+   const recentSeconds=Math.floor(now/1000)-60;
+   const history=r.midHistory.filter(x=>x.s>=recentSeconds&&x.s<=Math.floor(now/1000));
+   const bookAgeMs=r.bookTime>0?Math.max(0,now-r.bookTime):null;
+   const tradeAgeMs=r.tradeTime>0?Math.max(0,now-r.tradeTime):null;
+   const recentTrades=r.trades.filter(x=>x.t>=now-15000).length;
+   return {
+    symbol,bookReady:r.bookReady,executable:!!quote,acceptedBooks:r.acceptedBooks,
+    acceptedTrades:r.acceptedTrades,bookAgeMs,tradeAgeMs,
+    recentTrades,historySeconds:history.length,historySpanSeconds:history.length?history.at(-1).s-history[0].s:0,
+    reason:!r.acceptedBooks?'No valid orderbook snapshots':!r.bookReady?'Book invalid or crossed':
+     !quote?'Stale or insufficient executable orderbook':!r.acceptedTrades?'No accepted public trades':
+     !recentTrades||tradeAgeMs>2500?'Trade flow is stale':history.length<36||history.at(-1).s-history[0].s<58?
+      'Collecting 60-second price baseline':'Live market data is ready'
+   };
+  }
+  return {symbols:list,ingest,execution,observation,diagnostics,history:symbol=>(stores[symbol]?.midHistory||[]).map(x=>({...x}))};
  }
  return {create,validSymbols,MIN_NOTIONAL,GOAL_NET,MAKERLESS_TAKER,EXTRA_SLIP};
 });
