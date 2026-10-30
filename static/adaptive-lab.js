@@ -14,9 +14,13 @@
  function addCell(row,value){const cell=document.createElement('td');cell.textContent=String(value);row.append(cell)}
  function combined(){
   const historical=research?.summary?.enoughHistoricalEvidence===true,forwardOk=forward?.passed===true;
-  const status=historical&&forwardOk
-   ?'Both evidence screens passed, but forward Demo trades are from the existing strategy, not necessarily the adaptive threshold. NO live policy promotion; dedicated model-attributed forward testing and manual safety review remain required.'
-   :'NOT VALIDATED. Historical gate '+(research?historical?'passed':'failed':'not run')+'; completed forward Demo gate '+(forward?forwardOk?'passed':'failed':'not run')+'. OMEGA will not deploy a research policy to funded trading.';
+  let shadow=null;
+  try{shadow=window.OmegaShadowLedger?.report(window.OmegaShadowLedger.restore(JSON.parse(localStorage.getItem('omega_shadow_forward_v1_device')||'null')))}catch{}
+  const prospective=shadow?.passed===true;
+  const status='ADAPTIVE STRATEGY NOT APPROVED FOR LIVE. Historical validation: '+(research?historical?'PASS':'FAIL':'NOT RUN')+
+   '; completed legacy Demo trades: '+(forward?forwardOk?'PASS (different strategy)':'FAIL OR INSUFFICIENT':'NOT RUN')+
+   '; prospective adaptive shadow trials: '+(shadow?prospective?'RESEARCH SAMPLE PASS':'INSUFFICIENT':'NOT COLLECTED')+
+   '. Historical simulation, a device-local shadow sample, or a legacy Demo win rate cannot independently validate Bybit execution. No automatic funded-order changes.';
   show('adaptive-joint-status',status);
  }
  function drawResearch(data){
