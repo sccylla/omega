@@ -39,7 +39,7 @@ test('truncated pages, missing candles and unfinished bars cannot be treated as 
   return {ok:true,json:async()=>({retCode:0,result:{symbol:'BTCUSDT',list}})};
  };
  await assert.rejects(()=>readHistory('BTCUSDT',{days:28,now,fetcher:bad}),/coverage incomplete/);
- await assert.rejects(()=>readHistory('BTCUSDT',{days:7,now,fetcher:bad}),/Invalid Bybit history request/);
+ await assert.rejects(()=>readHistory('BTCUSDT',{days:8,now,fetcher:bad}),/Invalid Bybit history request/);
  await assert.rejects(()=>readHistory('BTC/USDT',{days:56,now,fetcher:bad}),/Invalid Bybit history request/);
 });
 test('adaptive model has nonoverlapping future tests, outcome embargo and no automatic live changes',()=>{
