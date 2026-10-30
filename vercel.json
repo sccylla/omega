@@ -33,6 +33,9 @@
     },
     "api/quote.js": {
       "maxDuration": 15
+    },
+    "api/manual-live.js": {
+      "maxDuration": 60
     }
   },
   "headers": [
