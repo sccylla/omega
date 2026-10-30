@@ -7,7 +7,7 @@
   bps=x=>Number.isFinite(x)?x.toFixed(1)+' bp':'—';
  const button=$('demo-seconds-start'),setStatus=s=>{$('demo-seconds-status').textContent=s},
   mode=s=>{$('demo-seconds-mode').textContent=s};
- let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0;
+ let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0;
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return A.initial()}}
  wallet=read();
  // An open position from a closed/reloaded browser has no verified exit.
@@ -61,6 +61,7 @@
     bps(r.requiredMoveBps),Number.isFinite(r.flowPressure)?(r.flowPressure*100).toFixed(0)+'%':'—',
     r.state==='WATCH'?r.side+' WATCH · '+r.score.toFixed(0):r.state+' · '+(r.reason||'No signal')]){
     const cell=document.createElement('td');cell.textContent=value;tr.append(cell)}
+   if(r.reasons?.length)tr.title='Entry checks: '+r.reasons.join(' | ');
    body.append(tr)
   }
  }
@@ -84,6 +85,16 @@
    }
   }else wallet=out.account;
   drawRows(results);chart(results);renderAccount();
+  if(now-lastDiagnostic>=9000&&!out.events.length){
+   lastDiagnostic=now;
+   const ready=results.filter(x=>x.state!=='NO_DATA'),qualified=results.filter(x=>x.state==='WATCH');
+   const top=[...results].filter(x=>Number.isFinite(x.range30Bps)).sort((a,b)=>(b.score||0)-(a.score||0))[0];
+   const notes=top?.reasons?.slice(0,2).join(' | ')||'Waiting for a fresh book and 30 seconds of valid live prices';
+   const block=A.stats(wallet,now).entryBlock;
+   setStatus(block||('Receiving valid quotes from '+ready.length+'/'+symbols.length+' pairs · '+qualified.length+
+    ' qualifying signals. '+(top?top.symbol+' ('+top.score+'/100): ':'')+notes+
+    '. Move your mouse over any WAIT row to see every entry rule blocking it.'));
+  }
   if(!out.risk.allowed&&!wallet.ledger.open)mode('DEMO RISK LIMIT / WAIT');
   else mode(results.some(r=>r.state==='WATCH')?'DEMO SIGNAL WATCH':'DEMO LIVE FEED');
  }
