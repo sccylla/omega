@@ -43,7 +43,7 @@ test('no switch, stale signal, broker exposure and low equity always block funde
  {broker:{snapshot:async()=>({equity:40,available:35,pnlToday:0,positions:[],pending:[]})}},
  {broker:{snapshot:async()=>({equity:100,available:50,pnlToday:0,positions:[{symbol:'BTCUSDT'}],pending:[]})}}
  ]){
-  const f=fake(),broker={...f.broker,...version.broker},h=factory({env:version.env||env,broker,analyze:version.analyze||async()=>plan,authentication:auth,clock:()=>current});
+  const f=fake(),broker={...f.broker,...version.broker},h=factory({env:version.env||env,broker,analyze:version.analyze||(async()=>plan),authentication:auth,clock:()=>current});
   const r=await call(h,{action:'preview',symbol:'XRPUSDT'});assert.notEqual(r.statusCode,200);assert.equal(f.writes.length,0);
  }
 });
