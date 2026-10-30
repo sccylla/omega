@@ -7,7 +7,7 @@
   bps=x=>Number.isFinite(x)?x.toFixed(1)+' bp':'—';
  const button=$('demo-seconds-start'),setStatus=s=>{$('demo-seconds-status').textContent=s},
   mode=s=>{$('demo-seconds-mode').textContent=s};
- let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0;
+ let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0,lastFeedUpdate=0,retryTimer=null,retryCount=0;
  let latestQuotes={};
  const intelligence=I.create();
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return A.initial()}}
@@ -51,11 +51,36 @@
  }
  function halt(reason){
   epoch++;active=false;
+  if(retryTimer){clearTimeout(retryTimer);retryTimer=null}
+  lastFeedUpdate=0;latestQuotes={};
   if(socket){try{socket.onopen=null;socket.onmessage=null;socket.onerror=null;socket.onclose=null;socket.close()}catch{}}
   socket=null;engine=null;
   if(wallet.ledger.open){wallet=A.interrupt(wallet);try{localStorage.setItem(KEY,JSON.stringify(wallet))}catch{}}
   button.textContent='Start Demo Seconds Scalper';mode('OFF · DEMO ONLY');
   setStatus(reason||'Seconds Demo paused. No real-money orders are involved.');renderAccount();
+ }
+ function recover(reason,id=epoch){
+  if(!active||id!==epoch||retryTimer)return;
+  if(socket){try{socket.onopen=null;socket.onmessage=null;socket.onerror=null;socket.onclose=null;socket.close()}catch{}}
+  socket=null;lastFeedUpdate=0;latestQuotes={};
+  // A disconnected book cannot verify an exit. Never reprice or resurrect
+  // an open virtual trade after reconnection.
+  if(wallet.ledger.open){
+   wallet=A.interrupt(wallet);
+   try{localStorage.setItem(KEY,JSON.stringify(wallet))}
+   catch{halt('Demo storage unavailable after disconnect. No virtual fill invented.');return}
+  }
+  retryCount++;
+  if(retryCount>6){halt('Market feed repeatedly disconnected. Scanner safely stopped after six retries. Check your connection and press Start to retry.');return}
+  try{engine=E.create(symbols,{maxSymbols:20})}catch(e){halt('Unable to restart market research: '+e.message);return}
+  const delay=Math.min(30000,2000*Math.pow(2,retryCount-1));
+  mode('RECONNECTING · DEMO ONLY');
+  setStatus(reason+' · automatically retrying public prices in '+Math.round(delay/1000)+'s (attempt '+retryCount+'/6). Virtual trades are not assumed to have closed profitably.');
+  renderAccount();
+  retryTimer=setTimeout(()=>{
+   retryTimer=null;
+   if(id===epoch&&active&&!document.hidden&&document.body.dataset.account==='demo')connect(id);
+  },delay);
  }
  function chart(results){
   const target=results.find(x=>x.state==='WATCH')||results.filter(x=>Number.isFinite(x.range30Bps)).sort((a,b)=>b.range30Bps-a.range30Bps)[0];
@@ -83,10 +108,14 @@
  function tick(){
   if(!active||document.hidden||document.body.dataset.account!=='demo'||!engine)return;
   if(!socket||socket.readyState!==WebSocket.OPEN){
-   if(Date.now()-lastConnected>12000)halt('Public seconds feed disconnected. No virtual price exits fabricated.');
+   if(Date.now()-lastConnected>12000)recover('Bybit WebSocket did not connect',epoch);
    return
   }
-  const now=Date.now(),preSignals=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
+  const now=Date.now();
+  if(now-lastConnected>16000&&(!lastFeedUpdate||now-lastFeedUpdate>16000)){
+   recover('No fresh Bybit order book or matched trade updates for 16 seconds',epoch);return;
+  }
+  const preSignals=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
    histories=Object.fromEntries(symbols.map(s=>[s,engine.history(s)])),
    reviewed=intelligence.update(preSignals,histories,wallet.ledger.closed,now),
    results=reviewed.signals,
@@ -106,11 +135,11 @@
   drawRows(results);chart(results);renderAccount();
   if(now-lastDiagnostic>=9000&&!out.events.length){
    lastDiagnostic=now;
-   const ready=results.filter(x=>x.state!=='NO_DATA'),qualified=results.filter(x=>x.state==='WATCH');
+   const ready=results.filter(x=>x.state!=='NO_DATA'&&x.state!=='WARMING'),qualified=results.filter(x=>x.state==='WATCH');
    const top=[...results].filter(x=>Number.isFinite(x.range30Bps)).sort((a,b)=>(b.score||0)-(a.score||0))[0];
-   const notes=top?.reasons?.slice(0,2).join(' | ')||'Waiting for a fresh book and 30 seconds of valid live prices';
+   const notes=top?.reasons?.slice(0,2).join(' | ')||'Waiting for fresh books, trades and an uninterrupted 60-second baseline';
    const block=A.stats(wallet,now).entryBlock;
-   setStatus(block||('Receiving valid quotes from '+ready.length+'/'+symbols.length+' pairs · '+qualified.length+
+   setStatus(block||('SCANNER ACTIVE · receiving quote and signal data from '+ready.length+'/'+symbols.length+' pairs · '+qualified.length+
     ' qualifying signals. '+(top?top.symbol+' ('+top.score+'/100): ':'')+notes+
     '. Move your mouse over any WAIT row to see every entry rule blocking it.'));
   }
@@ -119,7 +148,7 @@
  }
  function connect(id){
   lastConnected=Date.now();mode('CONNECTING TO BYBIT');
-  try{socket=new WebSocket(WS)}catch(e){halt('Unable to open public Bybit stream: '+e.message);return}
+  try{socket=new WebSocket(WS)}catch(e){recover('Unable to open public Bybit stream: '+e.message,id);return}
   socket.onopen=()=>{
    if(id!==epoch||!active)return;
    lastConnected=Date.now();
@@ -130,11 +159,16 @@
   socket.onmessage=event=>{
    if(id!==epoch||!active||document.hidden||typeof event.data!=='string'||event.data.length>900000)return;
    let msg;try{msg=JSON.parse(event.data)}catch{return}
-   if(msg.success===false){halt('Bybit rejected a requested symbol or data subscription');return}
-   engine?.ingest(msg,Date.now());
+   if(msg.success===false){recover('Bybit rejected a market subscription'+(msg.ret_msg?': '+String(msg.ret_msg).slice(0,100):''),id);return}
+   const now=Date.now();
+   if(engine?.ingest(msg,now)){
+    lastFeedUpdate=now;
+    // A stable connection resets the bounded retry count, not a lone packet.
+    if(now-lastConnected>30000)retryCount=0;
+   }
   };
   socket.onerror=()=>{if(active)setStatus('Public market stream error. New virtual trades require fresh prices.')};
-  socket.onclose=()=>{if(id===epoch&&active)halt('Bybit public market stream closed. Virtual entries paused, any open position marked incomplete.')};
+  socket.onclose=()=>{if(id===epoch&&active)recover('Bybit public market stream closed',id)};
  }
  function toggle(){
   if(active){halt('Demo Seconds Scalper paused. Open virtual research trades are marked incomplete, not assumed closed.');return}
@@ -142,7 +176,7 @@
   if(document.hidden||document.body.dataset.account!=='demo')return setStatus('Switch to Demo Account and keep the tab visible.');
   try{symbols=E.validSymbols($('demo-seconds-pairs').value,{maxSymbols:20});engine=E.create(symbols,{maxSymbols:20})}catch(e){setStatus(e.message);return}
   const check=A.eligibility(wallet);if(!check.allowed){setStatus(check.reason);return}
-  active=true;button.textContent='Pause Demo Seconds Scalper';const id=++epoch;connect(id);
+  active=true;retryCount=0;lastFeedUpdate=0;button.textContent='Pause Demo Seconds Scalper';const id=++epoch;connect(id);
  }
  button.addEventListener('click',toggle);
  $('demo-seconds-reset').addEventListener('click',()=>{

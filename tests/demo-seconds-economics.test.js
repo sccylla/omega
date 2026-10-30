@@ -1,6 +1,5 @@
 'use strict';
-const test=require('node:test');
-const assert=require('node:assert/strict');
+const test=require('node:test'),assert=require('node:assert/strict');
 const guard=require('../static/demo-seconds-guard');
 const now=Date.UTC(2026,9,30,15,0,0);
 function history(rangeBps){
@@ -10,29 +9,31 @@ function history(rangeBps){
 function signal(needed=70){
  return {symbol:'BTCUSDT',state:'WATCH',side:'BUY',score:90,requiredMoveBps:needed,spreadBps:1.2,roundTripImpactBps:2,reasons:[]};
 }
-test('range that covers only a fraction of the modeled net target cannot open',()=>{
- const s=guard.filter(signal(70),history(30),now);
+test('genuinely low volatility blocks a seconds scalp',()=>{
+ const s=guard.filter(signal(70),history(10),now);
  assert.equal(s.state,'WAIT');
  assert.equal(s.side,null);
- assert.ok(s.reasons.some(x=>x.includes('70.0 bp')));
+ assert.ok(s.reasons.some(x=>x.includes('Observed 60s range')));
 });
-test('full-target feasibility clears this guard only; it does not predict winning',()=>{
- const s=guard.filter(signal(70),history(90),now);
+test('past movement below future net target is NOT an absolute blocker',()=>{
+ const s=guard.filter(signal(70),history(30),now);
  assert.equal(s.state,'WATCH');
- assert.equal(s.feasibilityThresholdBps,70);
- assert.match(s.meaning,/not a forward forecast/);
+ assert.ok(s.feasibilityThresholdBps>18&&s.feasibilityThresholdBps<70);
+ assert.match(s.meaning,/not a forecast/);
 });
-test('missing net-target economics vetoes the entry',()=>{
- const s=guard.filter(signal(undefined),history(90),now);
- // The fallback param above defaults to 70; explicitly remove the field.
- const missing=signal();delete missing.requiredMoveBps;
- const out=guard.filter(missing,history(90),now);
- assert.equal(out.state,'WAIT');
- assert.match(out.reason,/Cannot establish/);
+test('missing or invalid cost economics vetoes entries',()=>{
+ for(const value of [undefined,NaN,0,-5,Infinity]){
+  const s=signal();s.requiredMoveBps=value;
+  const out=guard.filter(s,history(90),now);
+  assert.equal(out.state,'WAIT');
+  assert.match(out.reason,/Cannot establish/);
+ }
 });
-test('wide spread veto remains in force even on volatile pairs',()=>{
+test('wide spread and book impact still block volatile pair entries',()=>{
  const s=signal(70);s.spreadBps=4;
  const out=guard.filter(s,history(150),now);
  assert.equal(out.state,'WAIT');
  assert.match(out.reasons.join(' '),/Spread too high/);
+ const impact=signal(70);impact.roundTripImpactBps=12;
+ assert.equal(guard.filter(impact,history(150),now).state,'WAIT');
 });
