@@ -88,3 +88,31 @@ test('UI defaults to independent $88 wallet and preserves access to older $100 v
  assert.match(client,/let walletKey=SMALL_KEY/);
  assert.ok(!client.includes('/v5/order/create'));
 });
+
+test('full small-account book/trade pipeline can actually open one $15 virtual position',()=>{
+ const Signals=require('../static/demo-seconds-signals');
+ const Guard=require('../static/demo-seconds-guard');
+ const Intel=require('../static/demo-scalp-intelligence');
+ const engine=Engine.create([S],{notional:15,goalNet:.05}),intel=Intel.create();
+ let wallet=Account.smallInitial(NOW),opens=0;
+ for(let i=0;i<=64;i++){
+  const t=NOW+i*1000,p=100+(i<=20?.30*i/20:i<=45?.30-.20*(i-20)/25:.10+(i-45)*.008);
+  const bid=(p-.005).toFixed(5),ask=(p+.005).toFixed(5);
+  assert.equal(engine.ingest({topic:'orderbook.50.'+S,ts:t,type:'snapshot',
+    data:{s:S,u:i+1,seq:i+1,b:[[bid,'1000']],a:[[ask,'350']]}},t),true);
+  assert.equal(engine.ingest({topic:'publicTrade.'+S,ts:t,type:'snapshot',
+    data:[{s:S,S:'Buy',T:t,p:p.toFixed(5),v:'20',i:'micro-'+i}]},t),true);
+  if(i<60)continue;
+  const now=t+100,raw=engine.observation(S,now);
+  const tested=Guard.filter(Signals.evaluate(raw),engine.history(S),now);
+  const approved=intel.update([tested],{[S]:engine.history(S)},wallet.ledger.closed,now).signals[0];
+  const step=Account.step(wallet,{now,signals:[approved],
+   quotes:{[S]:engine.execution(S,now)},connected:true});
+  wallet=step.account;
+  opens+=step.events.filter(e=>e.type==='OPEN').length;
+ }
+ assert.equal(opens,1);
+ assert.equal(wallet.ledger.open.notional,15);
+ assert.equal(wallet.ledger.open.targetNet,.05);
+ assert.equal(wallet.cash,88);
+});
