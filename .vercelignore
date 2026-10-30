@@ -16,3 +16,5 @@ test-results/
 playwright-report/
 **/*.sqlite
 **/*.db
+# Legacy persistent-worker route omitted from free-tier browser-autopilot build.
+api/bot.js

@@ -4,9 +4,6 @@
     "api/paper.js": {
       "maxDuration": 15
     },
-    "api/bot.js": {
-      "maxDuration": 25
-    },
     "api/market.js": {
       "maxDuration": 15
     },
