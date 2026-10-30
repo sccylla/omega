@@ -1,6 +1,20 @@
 'use strict';
 (function(root,factory){const api=factory();if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaSelection=api})(typeof window!=='undefined'?window:null,function(){
  const rank=(a,b)=>(Number(b.rank)||0)-(Number(a.rank)||0)||a.symbol.localeCompare(b.symbol);
+ // Only a scheduling heuristic for *which* full-evidence candidates to inspect
+ // first. It is not an entry signal, profitability forecast, or risk override.
+ const finite=(n,otherwise=0)=>Number.isFinite(Number(n))?Number(n):otherwise;
+ const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
+ function priority(row){
+  const turnover=finite(row.turnover24h),spread=finite(row.spreadBps,8),move=Math.abs(finite(row.change24hPct)),fund=Math.abs(finite(row.fundingPct,1));
+  // Avoid prioritizing an extreme 24-hour mover merely for being dramatic.
+  // Prefer deep, tight markets where a $90 position is more executable.
+  const liquidity=clamp((Math.log10(Math.max(1,turnover))-7)/3,0,1);
+  const execution=clamp(1-spread/8,0,1);
+  const movement=move<.5?0:move<=5?1:move<=9?.65:.15;
+  const fundingSafety=clamp(1-fund/.12,0,1);
+  return 100*(.34*execution+.31*liquidity+.19*fundingSafety+.16*movement);
+ }
  function summarize(results,canEnter=()=>true){
   const counts=new Map();let qualified=0,accountBlocked=0,screenedOut=0;
   for(const plan of results){
@@ -41,6 +55,10 @@
    if(!/^[A-Z0-9]{2,24}USDT$/.test(item.symbol)||!Number.isFinite(item.turnover24h)||item.turnover24h<10000000||!Number.isFinite(item.spreadBps)||item.spreadBps<0||item.spreadBps>8){coverage.rejected++;coverage.checked++;results.push({symbol:item.symbol,eligible:false,screenedOut:true,reason:'Liquidity or spread does not meet entry rules',checks:[]})}
    else liquid.push(item);
   }
+  // The public scanner's buy/sell score reflects 24h movement rather than
+  // execution quality. Prioritize liquid, low-friction names while retaining
+  // a cursor so every eligible market receives its turn across bounded passes.
+  liquid.sort((a,b)=>priority(b)-priority(a)||a.symbol.localeCompare(b.symbol));
   const cursor=liquid.findIndex(x=>x.symbol===startAfter),offset=cursor<0?0:(cursor+1)%liquid.length;
   const queue=liquid.slice(offset).concat(liquid.slice(0,offset));
   const controller=new AbortController(),abort=()=>controller.abort();let deadline,selectionTimer;
@@ -75,5 +93,5 @@
    return {results,picks,coverage,nextAfter,summary:summarize(results,canEnter)};
   }finally{clearTimeout(deadline);clearTimeout(selectionTimer);signal?.removeEventListener('abort',abort);controller.abort()}
  }
- return {scanMarkets,rank,summarize,explain,within};
+ return {scanMarkets,rank,summarize,explain,within,priority};
 });

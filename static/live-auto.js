@@ -42,7 +42,7 @@ async function scan(trading){
   if(coverage.cancelled||canceled())return;cursor=nextAfter;
   const rows=$('live-auto-shortlist');rows.replaceChildren();
   for(const item of [...picks,...results.filter(x=>!x.screenedOut&&!picks.includes(x)).sort(M.rank)].slice(0,5)){
-   const row=document.createElement('div');row.textContent=item.symbol+' / '+(item.eligible?item.side:'WAIT')+' · '+(item.reason||'Market not qualified');rows.append(row)
+   const row=document.createElement('div');row.textContent=item.symbol+' / '+(item.eligible?item.side:'WAIT')+(item.eligible&&Number.isFinite(item.quality?.score)?' · Quality '+item.quality.score.toFixed(1)+'/100 (not win probability)':'')+' · '+(item.reason||'Market not qualified');rows.append(row)
   }
   $('live-auto-choice').textContent=picks.length?picks[0].symbol+' '+picks[0].side:'WAIT';
   if(!picks.length){status((trading?'Autopilot is armed. No qualifying entry yet. ':'Analysis-only complete. ')+M.explain(summary),trading?'WAITING FOR SETUP':'SCAN ONLY');return}

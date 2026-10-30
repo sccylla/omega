@@ -71,7 +71,7 @@
    for(const result of display.slice(0,5)){
     const row=document.createElement('div');row.className='decision-row';
     const market=document.createElement('button');market.type='button';market.textContent=result.symbol.replace(/USDT$/,'')+' / '+(result.eligible?result.side:'WAIT');market.addEventListener('click',()=>window.OmegaDecision.render(result,result.symbol));
-    const why=document.createElement('span');why.textContent=result.reason;
+    const why=document.createElement('span');why.textContent=(result.eligible&&Number.isFinite(result.quality?.score)?'Quality '+result.quality.score.toFixed(1)+'/100 (not win probability) · ':'')+result.reason;
     row.append(market,why);list.append(row);
    }
    if(!results.length)list.textContent='No market qualifies for a closer look. Waiting is a decision.';

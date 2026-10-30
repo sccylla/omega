@@ -144,3 +144,34 @@ test('demo may forward-test four-hour trend disagreement but strict live entry i
  assert.equal(strict.eligible,false);
  assert.ok(strict.blockers.some(c=>c.includes('4h trend')));
 });
+
+test('execution quality score is explainable, finite and not a claimed winning probability',()=>{
+ const d=decide(evidence(),{now:NOW,mode:'live'});
+ assert.equal(d.eligible,true);
+ assert.ok(d.quality.score>=0&&d.quality.score<=100);
+ assert.equal(d.rank,d.quality.score);
+ assert.ok(d.quality.factors.length>=5);
+ assert.equal(d.quality.factors.reduce((s,f)=>s+f.maxPoints,0),100);
+ assert.match(d.quality.meaning,/NOT a calibrated win rate/);
+ assert.equal(Object.hasOwn(d,'winProbability'),false);
+});
+test('failed market data cannot fabricate a high quality rating or bypass mandatory gates',()=>{
+ const e=evidence();e.book=null;
+ const result=decide(e,{now:NOW,mode:'live'});
+ assert.equal(result.eligible,false);
+ assert.equal(result.quality.score,0);
+ assert.equal(result.quality.grade,'UNAVAILABLE');
+ assert.ok(result.blockers.length>0);
+});
+test('when all conditions pass, wider spreads produce lower execution-quality ranks',()=>{
+ const e=evidence(),original=decide(e,{now:NOW,mode:'live'});
+ const wider=evidence();
+ const bid=Number(wider.book.b[0][0]),ask=Number(wider.book.a[0][0]);
+ const change=.00002;
+ wider.book.b=wider.book.b.map(([p,q])=>[String(Number(p)*(1-change)),q]);
+ wider.book.a=wider.book.a.map(([p,q])=>[String(Number(p)*(1+change)),q]);
+ wider.ticker.bid1Price=wider.book.b[0][0];wider.ticker.ask1Price=wider.book.a[0][0];
+ const withCosts=decide(wider,{now:NOW,mode:'live'});
+ if(withCosts.eligible)assert.ok(withCosts.quality.score<original.quality.score);
+ else assert.ok(withCosts.blockers.length>0);
+});

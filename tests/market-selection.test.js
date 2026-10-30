@@ -100,3 +100,28 @@ test('screening rejections and advisory history do not obscure current entry blo
  const summary=summarize([{screenedOut:true,reason:'Liquidity or spread does not meet entry rules'},{checks:[{label:'Historical sample',pass:false,required:false},{label:'Current momentum',pass:false}]}]);
  assert.equal(summary.screenedOut,1);assert.match(explain(summary),/Current momentum/);assert.doesNotMatch(explain(summary),/Historical|Liquidity/);
 });
+
+test('execution-priority scheduling favors deep, tight markets instead of dramatic 24h pump scores',async()=>{
+ const {priority}=require('../static/market-selection');
+ const liquid={symbol:'LIQUIDUSDT',turnover24h:900000000,spreadBps:1,change24hPct:2,fundingPct:.01,buyScore:65};
+ const pumped={symbol:'PUMPUSDT',turnover24h:12000000,spreadBps:7,change24hPct:65,fundingPct:.11,buyScore:99};
+ assert.ok(priority(liquid)>priority(pumped));
+ const seen=[];
+ const scan=await scanMarkets([pumped,liquid],{concurrency:1,analyze:async symbol=>{seen.push(symbol);return {eligible:false,reason:'Not enough verified evidence'}}});
+ assert.deepEqual(seen,['LIQUIDUSDT','PUMPUSDT']);
+ assert.equal(scan.coverage.complete,true);
+});
+test('priority ranking retains full scan cursor coverage across bounded passes',async()=>{
+ const rows=[
+  {symbol:'HIGHUSDT',turnover24h:1e9,spreadBps:.5,change24hPct:1,fundingPct:0},
+  {symbol:'MIDUSDT',turnover24h:1e8,spreadBps:3,change24hPct:2,fundingPct:0},
+  {symbol:'LOWUSDT',turnover24h:2e7,spreadBps:7,change24hPct:8,fundingPct:.07}
+ ];
+ const visited=[];
+ let cursor=null;
+ for(let i=0;i<3;i++){
+  const p=await scanMarkets(rows,{concurrency:1,maxMs:20,requestTimeoutMs:150,allowPartial:true,startAfter:cursor,analyze:async(symbol)=>{visited.push(symbol);return new Promise(()=>{})}});
+  cursor=p.nextAfter;
+ }
+ assert.deepEqual(visited,['HIGHUSDT','MIDUSDT','LOWUSDT']);
+});

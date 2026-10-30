@@ -9,7 +9,7 @@
   const direction=plan.eligible?plan.side||plan.decision:'WAIT';
   $('decision-heading').textContent=symbol.replace(/USDT$/,'')+' / '+direction;
   $('decision-heading').dataset.direction=direction;
-  $('decision-reason').textContent=plan.reason||'The available evidence does not support an entry.';
+  $('decision-reason').textContent=(plan.reason||'The available evidence does not support an entry.')+(plan.eligible&&Number.isFinite(plan.quality?.score)?' · Execution quality '+plan.quality.score.toFixed(1)+'/100 ('+plan.quality.grade.toLowerCase()+'; not win probability)':'');
   const checks=Array.isArray(plan.checks)?plan.checks:[];
   const required=checks.filter(x=>x.required!==false);
   $('decision-check-count').textContent=required.filter(x=>x.pass).length+' / '+required.length+' required checks passed';
