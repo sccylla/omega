@@ -34,6 +34,12 @@ const server = http.createServer(async (req, res) => {
         for (const h of rule.headers) res.setHeader(h.key, h.value);
       }
     }
+    if (url.pathname === '/healthz' && req.method === 'GET') {
+      // An unprivileged liveness check, deliberately not a readiness claim:
+      // credentials, worker activation and broker connectivity are private.
+      res.setHeader('Cache-Control','no-store');
+      return res.status(200).json({ok:true,service:'omega-worker',acceptingHttp:true});
+    }
     if (['/worker/control','/worker/paper'].includes(url.pathname)) {
       const token=process.env.OMEGA_WORKER_TOKEN;
       if(!token||token.length<32||!auth.safeCompare(req.headers.authorization||'','Bearer '+token)) return res.status(401).json({error:'Worker authentication required'});

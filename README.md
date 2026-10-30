@@ -107,3 +107,17 @@ Vercel functions cannot host the continuous worker or its durable ledger. Keep t
 The worker's control endpoint rejects unauthenticated requests. Do not expose its data directory through your reverse proxy. Preserve existing Vercel project `omega-trader-web`, region `fra1`, and existing variable values. Deployment is a separate action; nothing is published automatically.
 
 Public feeds require HTTPS access to `api.bybit.com` (default), with `www.okx.com` and `api.bitget.com` for alternative chart feeds. Optional legacy demo/OANDA connections retain their existing environment variable names and separate order switches.
+
+## Render persistent worker deployment preparation
+
+`render.yaml` describes a **single-instance, paid Render Starter** worker with a 1 GB persistent disk and a public HTTPS control endpoint protected by `OMEGA_WORKER_TOKEN`. This file **does not create a service by itself** and does not turn on real orders. Inspect Render costs before deploying.
+
+1. In Render, choose **New → Blueprint** and select `sccylla/omega` and `render.yaml`. Create only one OMEGA worker service. Never reuse the site-only or unrelated services.
+2. Enter `OMEGA_WORKER_TOKEN` (at least 32 cryptographically random characters), Bybit trade-enabled **dedicated account** credentials, and the dashboard/session secrets in Render's protected environment UI. Do not place these values in Git, client scripts, messages or screenshots. Keep withdrawals disabled on the Bybit key.
+3. Confirm `GET /healthz` responds. It indicates **liveness only**, not broker authorization, order readiness or profitability. The worker starts paused with `OMEGA_LIVE_ORDERS_ENABLED=false`.
+4. In Vercel `omega-trader-web` Production environment variables, add `OMEGA_WORKER_URL` as the deployed HTTPS Render origin and `OMEGA_WORKER_TOKEN` matching the exact private token on Render. Redeploy the frontend.
+5. Check the **Real Account → Check live setup** screen and live broker balance. With the dedicated account funded and its positions/pending orders reviewed, verify exchange-side protection, worker state persistence and risk tests against a non-funded/demo environment first. Only after successful verification change `OMEGA_LIVE_ORDERS_ENABLED=true` on the worker host, restart/deploy that service, and then explicitly activate within the authenticated dashboard by entering the existing confirmation phrase. A new worker **never arms itself automatically**.
+6. Never operate two workers against one brokerage account or remove the mounted durable state directory; do not redeploy a second worker to circumvent the exclusive lock. Start with no open positions or pending orders in a dedicated account and observe live fills and protective orders through Bybit itself.
+
+Render's Starter service and disk may incur charges. The `autoDeployTrigger: off` setting prevents a subsequent push to GitHub from unexpectedly restarting the armed worker. For maintenance or incident response, pause new entries in the OMEGA dashboard, inspect account risk and Bybit positions, and handle in-flight orders explicitly. Do not treat Vercel or Render as guaranteed zero-outage execution.
+

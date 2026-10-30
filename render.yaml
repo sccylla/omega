@@ -1,0 +1,37 @@
+# Optional paid persistent worker for OMEGA TRADER (never auto-creates a service).
+# Deploy this Blueprint manually in Render after reviewing plan and costs.
+# All funded order execution remains disabled until explicitly unlocked on the host.
+services:
+  - type: web
+    name: omega-trader-worker
+    runtime: node
+    plan: starter
+    numInstances: 1
+    autoDeployTrigger: off
+    buildCommand: "node --version"
+    startCommand: "node scripts/server.js"
+    healthCheckPath: /healthz
+    maxShutdownDelaySeconds: 120
+    disk:
+      name: omega-state
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: OMEGA_WORKER_DATA_DIR
+        value: /var/data/omega-state
+      - key: OMEGA_BIND_HOST
+        value: 0.0.0.0
+      - key: NODE_ENV
+        value: production
+      - key: OMEGA_LIVE_ORDERS_ENABLED
+        value: "false"
+      - key: OMEGA_WORKER_TOKEN
+        sync: false
+      - key: BYBIT_LIVE_API_KEY
+        sync: false
+      - key: BYBIT_LIVE_API_SECRET
+        sync: false
+      - key: OMEGA_DASHBOARD_PASSWORD
+        sync: false
+      - key: OMEGA_SESSION_SECRET
+        sync: false
