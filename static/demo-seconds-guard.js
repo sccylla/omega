@@ -10,20 +10,22 @@
    reasons.push('Need 60 seconds of fresh prices before entering a Demo scalp');
   const hi=values.length?Math.max(...values.map(x=>x.mid)):NaN,lo=values.length?Math.min(...values.map(x=>x.mid)):NaN;
   const range=last?.mid>0?10000*(hi-lo)/last.mid:NaN;
-  // The $0.50 target requires the *full* fee/spread-adjusted move; a small
-  // fraction of that range is not evidence that the target is feasible.
-  // Prior v1 accepted ~22bp ranges for trades needing ~70bp, a material
-  // mismatch between entry feasibility and actual exit economics.
-  const needed=Number(signal.requiredMoveBps);
+  // Cost economics and *past volatility* answer different questions. The
+  // modeled required move is the FORWARD price move needed for +$0.50 net;
+  // insisting that it already occurred in the last minute made entries
+  // almost impossible and is not a statistically justified predictor.
+  const needed=signal.requiredMoveBps;
   if(!Number.isFinite(needed)||needed<=0)reasons.push('Cannot establish after-cost $0.50 target requirements');
-  const threshold=Number.isFinite(needed)&&needed>0?Math.max(22,needed):Infinity;
-  if(!Number.isFinite(range)||range<threshold)reasons.push('Observed 60s range '+(Number.isFinite(range)?range.toFixed(1):'—')+' bp; require '+(Number.isFinite(threshold)?threshold.toFixed(1):'valid')+' bp for the modeled $0.50 net target');
+  // Demand a real volatility opportunity without confusing an observed
+  // historical range with the future $0.50 take-profit distance.
+  const threshold=Number.isFinite(needed)&&needed>0?Math.max(18,Math.min(30,needed*.35)):Infinity;
+  if(!Number.isFinite(range)||range<threshold)reasons.push('Observed 60s range '+(Number.isFinite(range)?range.toFixed(1):'—')+' bp; require '+(Number.isFinite(threshold)?threshold.toFixed(1):'valid')+' bp of movement for entry screening (not the take-profit distance)');
   if(!Number.isFinite(signal.spreadBps)||signal.spreadBps>2.5)reasons.push('Spread too high for cost-sensitive Demo scalp');
   if(!Number.isFinite(signal.roundTripImpactBps)||signal.roundTripImpactBps>7)reasons.push('Book execution impact too expensive');
   if(reasons.length)return {...signal,state:'WAIT',side:null,feasibilityBps:range,feasibilityThresholdBps:threshold,
    reason:reasons[0],reasons:[...reasons,...(signal.reasons||[])]};
   return {...signal,feasibilityBps:range,feasibilityThresholdBps:threshold,
-   meaning:'Demo-only full-target feasibility check; historical range is not a forecast of success and not a forward forecast, entry authorization or profitability validation'};
+   meaning:'Demo-only recent volatility screening, not a forecast of success or a prediction that the full modeled net-profit target will be reached'};
  }
  return {filter,MIN_LOOKBACK_SECONDS};
 });
