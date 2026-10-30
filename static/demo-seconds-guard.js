@@ -15,7 +15,7 @@
   // insisting that it already occurred in the last minute made entries
   // almost impossible and is not a statistically justified predictor.
   const needed=signal.requiredMoveBps;
-  if(!Number.isFinite(needed)||needed<=0)reasons.push('Cannot establish after-cost $0.50 target requirements');
+  if(!Number.isFinite(needed)||needed<=0)reasons.push('Cannot establish after-cost net target requirements');
   // Demand a real volatility opportunity without confusing an observed
   // historical range with the future $0.50 take-profit distance.
   const threshold=Number.isFinite(needed)&&needed>0?Math.max(18,Math.min(30,needed*.35)):Infinity;
