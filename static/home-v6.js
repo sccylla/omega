@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
 const $=id=>document.getElementById(id),E=window.OmegaPaper;
-const STORAGE='omega_trader_v6_browser_paper_account';
+const STORAGE=window.OmegaAccount.KEY;
 const SYMBOLS=['BTC','ETH','SOL'];
 const money=n=>(n<0?'−$':'$')+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const price=n=>Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -34,7 +34,7 @@ function summary(){
 function renderPositions(){
  $('paper-open-rows').innerHTML=account.positions.length?account.positions.map(p=>{
  const quote=quotes[p.symbol],unreal=E.markPnl(p,quote||p.entry);
- return `<tr><td><strong>${p.symbol} / USDT</strong></td><td><span class="side-tag ${p.side==='BUY'?'long':'short'}">${p.side==='BUY'?'BUY / LONG':'SELL / SHORT'}</span></td><td>$${price(p.entry)}</td><td>${quote?'$'+price(quote):'—'}</td><td class="${unreal<0?'paper-stat-down':'paper-stat-up'} demo-position-value">${money(unreal-p.entryFee-(quote||p.entry)*p.qty*E.FEE_RATE)}*</td><td>${p.auto?'$'+price(p.stop)+(p.targetNet?' / +$'+p.targetNet.toFixed(2)+' net':' / Trail'):'$'+price(p.stop)+' / $'+price(p.target)}</td><td><button class="paper-close-btn" data-paper-close="${p.id}" ${quote?'':'disabled'}>Close</button></td></tr>`
+ return `<tr><td><strong>${p.symbol} / USDT</strong></td><td><span class="side-tag ${p.side==='BUY'?'long':'short'}">${p.side==='BUY'?'BUY / LONG':'SELL / SHORT'}</span></td><td>$${price(p.entry)}</td><td>${quote?'$'+price(quote):'—'}</td><td class="${unreal<0?'paper-stat-down':'paper-stat-up'} demo-position-value">${money(unreal-p.entryFee-(quote||p.entry)*p.qty*E.FEE_RATE)}*</td><td>${p.auto?'$'+price(p.stop)+(p.closeOnProfit?' / Any net profit':p.targetNet?' / +$'+p.targetNet.toFixed(2)+' net':' / Trail'):'$'+price(p.stop)+' / $'+price(p.target)}</td><td><button class="paper-close-btn" data-paper-close="${p.id}" ${quote?'':'disabled'}>Close</button></td></tr>`
  }).join(''):'<tr><td colspan="7" class="center">No open demo positions. Practice your first trade above.</td></tr>';
  $('paper-open-rows').querySelectorAll('[data-paper-close]').forEach(el=>el.addEventListener('click',()=>{
  const p=account.positions.find(x=>x.id===el.dataset.paperClose),q=quotes[p?.symbol];if(!p||!Number.isFinite(q))return;
@@ -114,7 +114,7 @@ async function submit(side){const sym=$('paper-symbol').value,notional=Number($(
 $('paper-buy').addEventListener('click',()=>submit('BUY'));
 $('paper-sell').addEventListener('click',()=>submit('SELL'));
 $('paper-refresh').addEventListener('click',()=>{paperStatus('Refreshing public prices…');quotesRefresh()});
-$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $10,000? All simulated positions and trade history on this device will be erased.'))return;window.OmegaAccount.transact(()=>E.initial()).then(()=>{window.dispatchEvent(new Event('omega:paper-reset'));paperStatus('Virtual balance reset to $10,000.')}).catch(e=>paperStatus(e.message));});
+$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $100? All simulated positions and trade history on this device will be erased.'))return;window.OmegaAccount.transact(()=>E.initial()).then(()=>{window.dispatchEvent(new Event('omega:paper-reset'));paperStatus('Virtual balance reset to $100.')}).catch(e=>paperStatus(e.message));});
 window.addEventListener('omega:paper-updated',e=>{account=e.detail;render()});
 render();updateSelected();quotesRefresh();homeOpportunities();
 setInterval(()=>{if(!document.hidden&&['demo','overview'].includes(location.hash.slice(1)))quotesRefresh()},25000);

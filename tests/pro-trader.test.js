@@ -22,14 +22,14 @@ test('unclosed candle data cannot alter a confirmed decision',()=>{
 });
 test('profit exits subtract entry/exit fees and adverse slippage for both directions',()=>{
  for(const side of ['BUY','SELL']){
-  let a=E.open(E.initial(),{XRP:1},{symbol:'XRP',side,notional:10,auto:true,atr:.003,targetNet:.05,slippageBps:3});
+  let a=E.open(E.initial(),{XRP:1},{symbol:'XRP',side,notional:100,auto:true,atr:.003,targetNet:.05,slippageBps:3});
   a=E.applyQuote(a,{XRP:side==='BUY'?1.001:.999});assert.equal(a.positions.length,1);
   a=E.applyQuote(a,{XRP:side==='BUY'?1.012:.988});assert.equal(a.positions.length,0);
   assert.ok(a.closed[0].netRaw>=.05);assert.match(a.closed[0].reason,/Net profit target/);
  }
 });
 test('new strategy still takes a losing stop rather than waiting forever for profit',()=>{
- let a=E.open(E.initial(),{XRP:1},{symbol:'XRP',side:'BUY',notional:10,auto:true,targetNet:.05,slippageBps:3});
+ let a=E.open(E.initial(),{XRP:1},{symbol:'XRP',side:'BUY',notional:100,auto:true,targetNet:.05,slippageBps:3});
  a=E.applyQuote(a,{XRP:.97});assert.equal(a.positions.length,0);assert.ok(a.closed[0].netRaw<0);
 });
 test('win rate uses closed outcomes, includes losses and reports an empty sample honestly',()=>{

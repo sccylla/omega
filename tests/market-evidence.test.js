@@ -113,6 +113,7 @@ test('public API applies demo history policy explicitly and defaults to strict l
    await handler({method:'GET',query:{symbol:'XRP',...(mode?{mode}:{})}},res);
    assert.equal(res.code,200);assert.equal(res.body.decision.eligible,mode==='demo');assert.equal(res.body.decision.validation.passed,false);
    assert.equal(res.body.decision.executionPolicy,mode==='demo'?'DEMO_FORWARD_TEST':'LIVE_STRICT');
+   assert.equal(res.body.decision.notional,mode==='demo'?100:10);
   }
  }finally{require.cache[evidencePath].exports=previous;delete require.cache[apiPath]}
 });

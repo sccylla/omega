@@ -111,11 +111,11 @@ test('demo can forward-test a current qualifying setup without twenty historical
  assert.equal(demo.eligible,true);assert.equal(demo.executionPolicy,'DEMO_FORWARD_TEST');assert.equal(demo.validation.entryGate,'ADVISORY_DEMO');
  assert.equal(demo.validation.passed,false);assert.equal(demo.validation.tradeCount,0);assert.equal(demo.blockers.length,0);assert.ok(demo.warnings.length);
  assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,1);
- assert.equal(demo.targetNet,strict.targetNet);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,10);
+ assert.ok(Math.abs(demo.targetNet-10*strict.targetNet)<1e-10);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
  assert.equal(decide(e,{now:NOW,mode:'unrecognized'}).eligible,false);
 });
 test('demo history advisory never bypasses current market data, direction, spread, funding or sizing rules',()=>{
- for(const mutate of [e=>e.book=null,e=>e.five.splice(100,1),e=>e.ticker.turnover24h='1',e=>e.ticker.fundingRate='.001',e=>e.instrument.lotSizeFilter.minNotionalValue='11',e=>e.sourceTimes.ticker=NOW-16000]){
+ for(const mutate of [e=>e.book=null,e=>e.five.splice(100,1),e=>e.ticker.turnover24h='1',e=>e.ticker.fundingRate='.001',e=>e.instrument.lotSizeFilter.minNotionalValue='101',e=>e.sourceTimes.ticker=NOW-16000]){
   const e=evidence();e.five=e.five.slice(-500);mutate(e);const plan=decide(e,{now:NOW,mode:'demo'});
   assert.equal(plan.eligible,false);assert.ok(plan.blockers.length);assert.ok(plan.checks.some(c=>!c.pass&&c.required!==false));
  }

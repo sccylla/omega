@@ -8,7 +8,7 @@
  const progress=s=>{if($('auto-progress'))$('auto-progress').textContent=s};
  function controls(){
   $('auto-state').textContent=running?'READY':'OFF';
-  $('auto-toggle').textContent=running?'Stop automatic entries':'Trade · scan all & enter $10';
+  $('auto-toggle').textContent=running?'Stop automatic entries':'Trade · scan all & enter $100';
   $('auto-toggle').classList.toggle('is-running',running);
  }
  async function load(symbol){
@@ -45,6 +45,7 @@
    if(permitEntries)await manage();
    if(permitEntries&&(!running||document.body.dataset.account==='real'))return;
    if(permitEntries&&A.read().positions.length>=E.MAX_POSITIONS){status('Position limit reached. Existing trades remain managed; no new exposure.','MANAGING');return}
+   if(permitEntries&&E.equity(A.read(),{})<E.MIN_NOTIONAL_USD){status('Demo equity is below the $100 minimum. Reset the demo balance to resume.','BALANCE TOO LOW');return}
    if(run.signal.aborted)throw new DOMException('Scan cancelled','AbortError');
    $('auto-state').textContent='SCANNING';
    progress('Pass '+pass+': loading the full market list…');
@@ -88,13 +89,13 @@
    if(!fresh.eligible||!['BUY','SELL'].includes(fresh.side))throw Error('The setup no longer qualifies: '+fresh.reason);
    await M.within(signal=>A.transact(a=>{
     if(!running||document.hidden||run.signal.aborted||document.body.dataset.account==='real')return a;
-    if(a.positions.length>=E.MAX_POSITIONS)throw Error('Two positions open. Managing exits; no additional exposure.');
+    if(a.positions.length>=E.MAX_POSITIONS)throw Error('One demo position is already open. Managing its exit.');
     const pick=fresh,symbol=pick.symbol.replace(/USDT$/,'');
     if(a.positions.some(p=>p.symbol===symbol))throw Error('This market already has an open position.');
     if(!Number.isFinite(pick.observedAt)||Date.now()-pick.observedAt>10000||!Number.isFinite(pick.expiresAt)||Date.now()>pick.expiresAt||pick.observedAt>Date.now()+1000||Date.now()-(pick.barTime+300000)>360000)throw Error('Setup expired during scanning.');
     if(window.OmegaPortfolio.concentrated(pick.side,pick.metrics?.benchmarkCorrelation,a.positions))throw Error('Portfolio concentration: correlated exposure or unknown correlation blocks another position.');
-    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:10,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet:pick.targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null}});
-    status('Pass '+pass+': opened $10 virtual '+pick.side+' '+symbol+', the best qualifying pair analyzed in this pass. Net profit target $'+pick.targetNet.toFixed(2)+'; protective stop active while this page is open.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':''),'TRADE OPEN');
+    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:E.MIN_NOTIONAL_USD,stopPct:pick.stopPct,auto:true,closeOnProfit:true,atr:pick.atr,targetNet:pick.targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null}});
+    status('Pass '+pass+': opened $100 virtual '+pick.side+' '+symbol+'. Close at $0.01 or more net profit after simulated fees and slippage, then scan immediately for the next trade. Protective stop active.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':''),'TRADE OPEN');
     return next;
    },{requireLock:true,signal}),{signal:run.signal,timeoutMs:5000,label:'Demo entry account lock'});
   }catch(e){
@@ -112,5 +113,5 @@
  window.addEventListener('omega:paper-updated',()=>{stats();if(running&&!busy)queueMicrotask(()=>cycle(true))});
  window.addEventListener('storage',e=>{if(e.key===A.KEY)stats()});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)activeRun?.abort();else cycle(true)});
- controls();stats();setInterval(()=>{if(!document.hidden)manage().catch(e=>status(e.message));cycle()},15000);
+ controls();stats();setInterval(()=>{if(!document.hidden)manage().catch(e=>status(e.message))},2000);setInterval(()=>cycle(),15000);
 })();

@@ -13,6 +13,6 @@ module.exports=async(req,res)=>{
  try{
   const evidence=await collectEvidence(symbol);
   const {decide}=require('../lib/advanced-decision');
-  return res.status(200).json({symbol,decision:decide(evidence,{side,mode,now:Date.now(),notional:10}),observedAt:evidence.observedAt});
+  return res.status(200).json({symbol,decision:decide(evidence,{side,mode,now:Date.now(),notional:mode==='demo'?100:10}),observedAt:evidence.observedAt});
  }catch{return res.status(502).json({error:'Market evidence decision is temporarily unavailable',symbol})}
 };
