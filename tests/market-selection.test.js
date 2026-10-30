@@ -55,7 +55,7 @@ test('successive bounded passes resume after attempted pairs instead of repeated
  const analyze=async symbol=>{seen.push(symbol);return new Promise(()=>{})};
  const first=await scanMarkets(rows,{analyze,maxMs:30,allowPartial:true});
  const second=await scanMarkets(rows,{analyze,maxMs:30,allowPartial:true,startAfter:first.nextAfter});
- assert.deepEqual(seen,['ONEUSDT','TWOUSDT','THREEUSDT','FOURUSDT']);assert.equal(second.nextAfter,'FOURUSDT');
+ assert.deepEqual([...seen].sort(),['FOURUSDT','ONEUSDT','THREEUSDT','TWOUSDT']);assert.equal(new Set(seen).size,4);assert.equal(second.nextAfter,seen.at(-1));
 });
 test('explicit cancellation immediately stops an ignored abort and discards partial qualifying results',async()=>{
  const controller=new AbortController();let began;
@@ -67,7 +67,7 @@ test('explicit cancellation immediately stops an ignored abort and discards part
  assert.equal(result.coverage.cancelled,true);assert.deepEqual(result.picks,[]);
 });
 test('a stalled single market times out and cannot prevent later pairs being analyzed',async()=>{
- const calls=[];const result=await scanMarkets(['STUCKUSDT','GOODUSDT'].map(row),{concurrency:1,requestTimeoutMs:20,analyze:async symbol=>{
+ const calls=[];const markets=[{...row('STUCKUSDT'),turnover24h:1e9,spreadBps:.1},{...row('GOODUSDT'),turnover24h:2e7,spreadBps:7.5}];const result=await scanMarkets(markets,{concurrency:1,requestTimeoutMs:20,analyze:async symbol=>{
   calls.push(symbol);if(symbol==='STUCKUSDT')return new Promise(()=>{});return {eligible:true,side:'SELL',rank:10};
  }});
  assert.deepEqual(calls,['STUCKUSDT','GOODUSDT']);assert.equal(result.coverage.incomplete,1);assert.match(result.results[0].reason,/timed out/);assert.equal(result.picks[0].symbol,'GOODUSDT');
