@@ -82,3 +82,12 @@ test('prospective shadow execution does not use Bybit private keys or any funded
  assert.ok(api.includes("validation==='shadow'"));
  assert.ok(api.includes('makeForecast('));
 });
+
+test('combined readiness cannot turn a legacy Demo win into approved adaptive live trading',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const src=fs.readFileSync(path.join(__dirname,'../static/adaptive-lab.js'),'utf8');
+ assert.match(src,/ADAPTIVE STRATEGY NOT APPROVED FOR LIVE/);
+ assert.match(src,/different strategy/);
+ assert.match(src,/omega_shadow_forward_v1_device/);
+ assert.ok(!src.includes("action:'enter'"));
+});
