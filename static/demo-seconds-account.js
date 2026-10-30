@@ -46,10 +46,18 @@
   const account=restore(raw,now);
   return {...account,ledger:Shadow.interrupt(account.ledger)};
  }
- function stats(raw,now=Date.now()){
+ function stats(raw,now=Date.now(),quotes={}){
   const a=restore(raw,now),rawStats=Shadow.stats(a.ledger),
    risk=eligibility(a,now);
+  const position=a.ledger.open,q=position&&quotes?.[position.symbol];
+  const priced=Boolean(position&&q&&Number.isFinite(position.entry)&&position.entry>0&&
+   Number.isFinite(q.bidVwap)&&q.bidVwap>0&&Number.isFinite(q.askVwap)&&q.askVwap>q.bidVwap&&
+   Number.isFinite(q.observedAt)&&q.observedAt<=now+1000&&now-q.observedAt<=2300);
+  const unrealized=priced?Shadow.pnl(position,q):null;
   return {wallet:round(a.cash,2),equity:round(a.cash,2),
+   estimatedEquity:position?(Number.isFinite(unrealized)?round(a.cash+unrealized,2):null):round(a.cash,2),
+   unrealizedNetUsd:Number.isFinite(unrealized)?round(unrealized,4):null,
+   openMarkPriced:priced,
    totalNetUsd:round(a.cash-INITIAL_USD,2),
    todayNetUsd:round(a.cash-(a.day===day(now)?a.dayStartEquity:a.cash),2),
    closedTrades:a.closedTrades,wins:a.wins,
