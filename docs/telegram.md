@@ -30,3 +30,21 @@ The token and owner ID are **not set** in this repository. Until credentials are
 Run node --test tests/telegram-demo.test.js or the full suite node --test tests/*.test.js.
 
 The independent funded Bybit worker retains its own stricter live credentials, approvals, account exposure and execution safeguards. Telegram cannot activate or place real-money trades.
+
+## Optional real-money Bybit connection — explicitly confirmed orders only
+
+The Telegram bot supports a separate REAL Bybit account interface. It does NOT automatically trade real funds. Each funded entry requires a fresh preview and a new explicit code confirmation. The demo /run and /pause commands still operate virtual funds only.
+
+Private worker setup:
+
+1. Use a dedicated Bybit Unified Trading Account with sufficient USDT equity. Create a trade-enabled Bybit API key with withdrawal permissions **disabled**. Where practical, restrict access to the worker's fixed outbound IP. Set BYBIT_LIVE_API_KEY and BYBIT_LIVE_API_SECRET in the persistent worker's private environment. Never send credentials via Telegram or GitHub.
+2. Configure OMEGA_TELEGRAM_BOT_TOKEN and OMEGA_TELEGRAM_OWNER_CHAT_ID as described above. Do not run more than one bot worker using the same token.
+3. Keep OMEGA_TELEGRAM_REAL_ORDERS_ENABLED=false initially. In Telegram run /realstatus, /realbalance, and /realpositions to verify the live account through read-only queries. Those balances are from Bybit, NOT the virtual $88 wallet.
+4. After reviewing the live connection and protections, an operator may explicitly set OMEGA_TELEGRAM_REAL_ORDERS_ENABLED=true on the private worker and restart it. This does NOT automatically place an order.
+5. To approve an individual funded trade, send /realtrade BUY XRPUSDT or /realtrade SELL XRPUSDT, inspect the price, quantity, estimated costs, exchange TP/SL and risk, and then send /confirmreal CODE within 60 seconds if you intend to trade real funds. Use /realorders to reconcile. An unresolved intent blocks any new order.
+
+Protection rules: intended $15 real notional (maximum $16 after exchange quantity increments), maximum 20% account exposure, minimum $75 account equity to fund that cap, zero other open or pending positions, one intent, one-way USDT perpetuals, real exchange min-notional/quantity validation, 1x leverage, capped entry slippage, attached full-position exchange TP/SL, $1 maximum daily reported loss, and estimated per-trade stop+cost risk <= $0.15 AND <= 0.25% equity. Actual fees, market gaps and stop execution can be worse. Some symbols may disallow $15 orders entirely. The modeled net take-profit goal is $0.05 and no profit is guaranteed.
+
+The existing separate $90 funded web-worker and its $450 equity safeguard remain unchanged. This manually confirmed real-trading route is separately gated. It is not validated to be a profitable seconds-scalping algorithm. Telegram bot chats are not end-to-end encrypted: never share exchange keys, passwords, withdrawal credentials, seed phrases or bot tokens in chat.
+
+A code deployment alone does not create API credentials, turn on funded orders, pay for hosting, or link Telegram. Only the account owner can approve a specific live order after a secure private configuration.
