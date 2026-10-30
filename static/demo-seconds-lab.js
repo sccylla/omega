@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
- const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals;
- if(!E||!A||!X||!$('demo-seconds-start'))return;
+ const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals,G=window.OmegaDemoScalpGuard;
+ if(!E||!A||!X||!G||!$('demo-seconds-start'))return;
  const KEY='omega_demo_seconds_wallet_v1',WS='wss://stream.bybit.com/v5/public/linear';
  const money=x=>Number.isFinite(x)?(x<0?'−$':'$')+Math.abs(x).toFixed(2):'—',
   bps=x=>Number.isFinite(x)?x.toFixed(1)+' bp':'—';
@@ -28,7 +28,7 @@
   if(!recent.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No completed seconds trades yet.';tr.append(td);body.append(tr)}
   for(const t of recent){
    const tr=document.createElement('tr');
-   for(const value of [t.symbol,t.side,Math.round((t.closedAt-t.openedAt)/1000)+'s',money(t.net),t.reason]){
+   for(const value of [t.symbol,t.side,Math.round((t.closedAt-t.openedAt)/1000)+'s',money(t.net),t.reason+(Number.isFinite(t.fees)?' · Gross '+money(t.gross)+' / costs '+money(t.fees+t.slippage):' · older model')]){
     const td=document.createElement('td');td.textContent=value;tr.append(td)
    }
    body.append(tr);
@@ -71,7 +71,7 @@
    if(Date.now()-lastConnected>12000)halt('Public seconds feed disconnected. No virtual price exits fabricated.');
    return
   }
-  const now=Date.now(),results=symbols.map(s=>X.evaluate(engine.observation(s,now))),
+  const now=Date.now(),results=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
    quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
   const out=A.step(wallet,{now,signals:results,quotes,connected:true});
   if(out.events.length){
@@ -80,7 +80,7 @@
    for(const event of out.events){
     if(event.type==='OPEN')setStatus('Demo virtual BUY/SELL opened on '+event.symbol+'. Watching executable prices for a qualified virtual exit.');
     else if(event.type==='CLOSED')setStatus('Closed '+event.trade.side+' '+event.trade.symbol+' in '+Math.round((event.trade.closedAt-event.trade.openedAt)/1000)+
-     's · virtual net '+money(event.trade.net)+' · '+event.trade.reason+'. The next scan will look for another setup.');
+     's · virtual net '+money(event.trade.net)+' (gross '+money(event.trade.gross)+', modeled fees + slippage '+money((event.trade.fees||0)+(event.trade.slippage||0))+') · '+event.trade.reason+'. Next scan only after risk and volatility checks.');
     else setStatus('Price feed lost during a trade. Marked incomplete, not counted as profit.');
    }
   }else wallet=out.account;
@@ -105,7 +105,7 @@
    if(id!==epoch||!active)return;
    lastConnected=Date.now();
    socket.send(JSON.stringify({op:'subscribe',args:symbols.flatMap(s=>['orderbook.50.'+s,'publicTrade.'+s])}));
-   setStatus('Bybit connected. Gathering 30 seconds of live trade flow for Demo exploratory impulses (minimum 8 bp range). Net exit target remains $0.50; entries are not guaranteed.');
+   setStatus('Bybit connected. First collecting 60 seconds of real prices, then requiring a cost-aware volatility burst before a $90 Demo trade. $0.50 net remains the goal; returns are not guaranteed.');
   };
   socket.onmessage=event=>{
    if(id!==epoch||!active||document.hidden||typeof event.data!=='string'||event.data.length>900000)return;
@@ -132,10 +132,10 @@
  });
  $('demo-seconds-export').addEventListener('click',()=>{
   const rows=[...wallet.ledger.closed];if(!rows.length){setStatus('No completed virtual seconds trades to export yet.');return}
-  const header='opened_at,closed_at,symbol,side,entry_price,exit_price,net_usd,seconds_held,reason';
+  const header='opened_at,closed_at,symbol,side,entry_price,exit_price,gross_usd,estimated_fees_usd,estimated_slippage_usd,net_usd,seconds_held,reason';
   const csv=[header,...rows.map(t=>[
    new Date(t.openedAt).toISOString(),new Date(t.closedAt).toISOString(),t.symbol,t.side,
-   t.entry,t.exit,t.net,Math.round((t.closedAt-t.openedAt)/1000),JSON.stringify(t.reason)
+   t.entry,t.exit,t.gross??'',t.fees??'',t.slippage??'',t.net,Math.round((t.closedAt-t.openedAt)/1000),JSON.stringify(t.reason)
   ].join(','))].join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='omega_demo_seconds_trades.csv';document.body.appendChild(a);a.click();a.remove();
