@@ -1,13 +1,14 @@
 'use strict';
 (()=>{
- const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals,G=window.OmegaDemoScalpGuard;
- if(!E||!A||!X||!G||!$('demo-seconds-start'))return;
+ const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals,G=window.OmegaDemoScalpGuard,I=window.OmegaDemoScalpIntelligence;
+ if(!E||!A||!X||!G||!I||!$('demo-seconds-start'))return;
  const KEY='omega_demo_seconds_wallet_v1',WS='wss://stream.bybit.com/v5/public/linear';
  const money=x=>Number.isFinite(x)?(x<0?'−$':'$')+Math.abs(x).toFixed(2):'—',
   bps=x=>Number.isFinite(x)?x.toFixed(1)+' bp':'—';
  const button=$('demo-seconds-start'),setStatus=s=>{$('demo-seconds-status').textContent=s},
   mode=s=>{$('demo-seconds-mode').textContent=s};
  let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0;
+ const intelligence=I.create();
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(KEY)||'null'))}catch{return A.initial()}}
  wallet=read();
  // An open position from a closed/reloaded browser has no verified exit.
@@ -17,7 +18,18 @@
   catch{halt('Demo wallet storage unavailable. Virtual trading paused without claiming a fill.');return false}
  }
  function renderAccount(){
-  const s=A.stats(wallet);
+  const s=A.stats(wallet),a=I.audit(wallet.ledger.closed);
+  const core=a.trailingWinRatePct===null?'—':a.trailingWinRatePct.toFixed(1)+'%';
+  $('demo-scalp-intel-status').textContent='LAST '+a.latest20+' CLOSED TRADES · '+core+' win rate · '+money(a.recentNetUsd)+' estimated net · '+a.lossStreak+' consecutive losses'+
+   (a.globalPauseUntil>Date.now()?' · NEW ENTRIES PAUSED: '+a.globalReason:'');
+  $('demo-scalp-intel-costs').textContent='Modeled fees + slippage '+money(a.observedCostsUsd)+' on '+a.recordsWithCosts+' recorded trades · '+
+   'observed break-even win rate '+a.breakEvenWinPct+'% (theoretical baseline 60%) · '+
+   (a.validatedEdge?'Validated':'No proven profitable edge');
+  const worst=a.markets.slice(0,4);
+  $('demo-scalp-intel-markets').textContent=worst.length?('Lowest-performing observed pairs: '+worst.map(x=>x.symbol+' '+x.trades+' trades / '+money(x.netUsd)+
+   (x.quarantineUntil>Date.now()?' (cooldown)':'')).join(' · ')):
+   'Market-by-market loss analysis appears once virtual trades are completed.';
+
   $('demo-seconds-equity').textContent=money(s.equity);$('demo-seconds-net').textContent=money(s.totalNetUsd);
   $('demo-seconds-trades').textContent=s.closedTrades;
   $('demo-seconds-wins').textContent=s.winRatePct===null?'—':s.winRatePct.toFixed(1)+'%';
@@ -71,7 +83,10 @@
    if(Date.now()-lastConnected>12000)halt('Public seconds feed disconnected. No virtual price exits fabricated.');
    return
   }
-  const now=Date.now(),results=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
+  const now=Date.now(),preSignals=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
+   histories=Object.fromEntries(symbols.map(s=>[s,engine.history(s)])),
+   reviewed=intelligence.update(preSignals,histories,wallet.ledger.closed,now),
+   results=reviewed.signals,
    quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
   const out=A.step(wallet,{now,signals:results,quotes,connected:true});
   if(out.events.length){
@@ -133,10 +148,10 @@
  });
  $('demo-seconds-export').addEventListener('click',()=>{
   const rows=[...wallet.ledger.closed];if(!rows.length){setStatus('No completed virtual seconds trades to export yet.');return}
-  const header='opened_at,closed_at,symbol,side,entry_price,exit_price,gross_usd,estimated_fees_usd,estimated_slippage_usd,net_usd,seconds_held,reason';
+  const header='opened_at,closed_at,symbol,side,entry_price,exit_price,gross_usd,estimated_fees_usd,estimated_slippage_usd,net_usd,seconds_held,reason,entry_quality,entry_spread_bps,entry_flow_pressure,entry_15s_bps,strategy_version';
   const csv=[header,...rows.map(t=>[
    new Date(t.openedAt).toISOString(),new Date(t.closedAt).toISOString(),t.symbol,t.side,
-   t.entry,t.exit,t.gross??'',t.fees??'',t.slippage??'',t.net,Math.round((t.closedAt-t.openedAt)/1000),JSON.stringify(t.reason)
+   t.entry,t.exit,t.gross??'',t.fees??'',t.slippage??'',t.net,Math.round((t.closedAt-t.openedAt)/1000),JSON.stringify(t.reason),t.quality??'',t.entryEvidence?.spreadBps??'',t.entryEvidence?.flowPressure??'',t.entryEvidence?.move15Bps??'',t.entryEvidence?.strategy||''
   ].join(','))].join('\n');
   const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
   const a=document.createElement('a');a.href=url;a.download='omega_demo_seconds_trades.csv';document.body.appendChild(a);a.click();a.remove();

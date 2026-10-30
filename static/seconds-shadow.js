@@ -27,7 +27,7 @@
     if(result>=.50||result<=-.75||(holdLimit!==null&&time>=holdLimit)){
      const reason=result>=.50?'Modeled $0.50 net TP':result<=-.75?'Modeled $0.75 loss trigger':Math.round(holdLimit/1000)+'s time limit';
      const trade={symbol:p.symbol,side:p.side,openedAt:p.openedAt,closedAt:now,entry:p.entry,
-      exit:p.side==='BUY'?q.bidVwap:q.askVwap,net:round(result),gross:round(breakdownValue.gross),fees:round(breakdownValue.fees),slippage:round(breakdownValue.slippage),reason,quality:p.quality,requiredMoveBps:p.requiredMoveBps};
+      exit:p.side==='BUY'?q.bidVwap:q.askVwap,net:round(result),gross:round(breakdownValue.gross),fees:round(breakdownValue.fees),slippage:round(breakdownValue.slippage),reason,quality:p.quality,requiredMoveBps:p.requiredMoveBps,entryEvidence:p.entryEvidence||null};
      s.closed=[...s.closed,trade].slice(-MAX_RECORDS);s.open=null;s.lastClose=now;events.push({type:'CLOSED',trade});
     }
    }
@@ -38,7 +38,14 @@
    if(choice){
     const q=quotes[choice.symbol],entry=choice.side==='BUY'?q.askVwap:q.bidVwap;
     if(Number.isFinite(entry)&&entry>0&&q.notional===90){
-     s.open={symbol:choice.symbol,side:choice.side,openedAt:now,entry,notional:90,quality:choice.score,requiredMoveBps:q.requiredMoveBps};
+     const entryEvidence=choice.qualityVeto==='DEMO_INTELLIGENCE_V1'?{
+      strategy:'DEMO_INTELLIGENCE_V1',spreadBps:Number(choice.spreadBps),
+      flowPressure:Number(choice.flowPressure),imbalance:Number(choice.imbalance),
+      move5Bps:Number(choice.move5Bps),move15Bps:Number(choice.move15Bps),
+      range30Bps:Number(choice.range30Bps),feasibilityBps:Number(choice.feasibilityBps),
+      confirmationSeconds:Number(choice.confirmationSeconds)
+     }:null;
+     s.open={symbol:choice.symbol,side:choice.side,openedAt:now,entry,notional:90,quality:choice.score,requiredMoveBps:q.requiredMoveBps,entryEvidence};
      events.push({type:'OPEN',symbol:choice.symbol});
     }
    }
