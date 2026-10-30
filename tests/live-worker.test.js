@@ -6,18 +6,18 @@ class FakeBroker{
  constructor(){this.sent=[];this.orders=[];this.s={equity:1000,available:1000,positions:[],pending:[],pnlToday:0};this.timeout=false}
  ready(){return true}async snapshot(){return structuredClone(this.s)}
  async markets(){return [{symbol:'XRPUSDT',lastPrice:'107.9',bid1Price:'107.89',ask1Price:'107.9',turnover24h:'100000000',price24hPcnt:'.05',fundingRate:'.0001'}]}
- async candles(){return candles()}async ticket(symbol,side,plan){return {symbol,side,qty:'.09',price:plan.price,notional:9.8,stopLoss:'106',takeProfit:'110'}}
+ async candles(){return candles()}async ticket(symbol,side,plan){return {symbol,side,qty:'.83',price:plan.price,notional:90.2,stopLoss:'107.3',takeProfit:'110'}}
  async leverage(){}
  async enter(ticket,link){this.sent.push({ticket,link});if(this.timeout)throw Error('Network timed out after submission');this.orders.push({symbol:ticket.symbol,side:ticket.side,orderLinkId:link,orderStatus:'Filled',cumExecQty:ticket.qty,leavesQty:'0'});this.s.positions=[{symbol:ticket.symbol,side:ticket.side,size:ticket.qty,stopLoss:ticket.stopLoss,takeProfit:ticket.takeProfit,markPrice:String(ticket.price),avgPrice:String(ticket.price)}]}
  async order(symbol,link){return this.orders.find(x=>x.orderLinkId===link)||null}
  async close(position,link){this.sent.push({close:true,link})}
 }
 function setup(t,options={}){const directory=fs.mkdtempSync(path.join(os.tmpdir(),'omega-worker-'));t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));const broker=new FakeBroker(),env={OMEGA_LIVE_ORDERS_ENABLED:'true',...options};return {directory,broker,env,worker:new TradingWorker({directory,broker,env,analyze:async()=>({eligible:true,rank:10,side:'BUY',price:candles().at(-1)[4],atr:.44,stopPct:.6,targetNet:.1,barTime:candles().at(-1)[0],observedAt:Date.now(),expiresAt:Date.now()+10000,checks:[{label:'Injected strategy fixture',pass:true}],metrics:{},validation:{tradeCount:24,passed:true}})})}}
-const activate=w=>w.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:1});
+const activate=w=>w.control({action:'start',confirm:'START REAL $90 BOT',dailyLimit:1});
 test('activation requires exact confirmation, server switch and strict loss cap',async t=>{
  const {worker,env}=setup(t);assert.equal(worker.status().active,false);
  await assert.rejects(worker.control({action:'start',confirm:'yes',dailyLimit:1}),/Type START/);
- await assert.rejects(worker.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:100}),/Daily loss/);
+ await assert.rejects(worker.control({action:'start',confirm:'START REAL $90 BOT',dailyLimit:100}),/Daily loss/);
  env.OMEGA_LIVE_ORDERS_ENABLED='false';await assert.rejects(activate(worker),/switch/);
 });
 test('a live entry is reconciled and may reenter after closing without a candle cooldown',async t=>{
@@ -50,19 +50,19 @@ test('broker signs the exact live request and refuses arbitrary operations',asyn
  await assert.rejects(broker.request('POST','/v5/asset/withdraw/create'),/not allowed/);
  await broker.close({symbol:'XRPUSDT',side:'Buy',size:1},'fixture-close');const body=JSON.parse(captured.options.body);assert.equal(body.reduceOnly,true);assert.equal(body.side,'Sell');
 });
-test('live sizing rounds down and skips exchange minimums exceeding $10',async()=>{
+test('live sizing rounds up to at least $90 and skips exchange minimums exceeding $91',async()=>{
  const broker=new LiveBroker();let minimum='5';broker.request=async(method,route)=>route.includes('instruments')?{list:[{symbol:'XRPUSDT',quoteCoin:'USDT',contractType:'LinearPerpetual',status:'Trading',lotSizeFilter:{qtyStep:'.1',minOrderQty:'.1',maxMktOrderQty:'100',minNotionalValue:minimum},priceFilter:{tickSize:'.001'}}]}:{list:[{symbol:'XRPUSDT',ask1Price:'1.003',bid1Price:'1.0029',markPrice:'1.003'}]};
- const ticket=await broker.ticket('XRPUSDT','Buy',{price:1.003,stopPct:1,targetNet:.15});assert.ok(ticket.notional<=10);assert.ok(ticket.notional>=5);assert.ok(Number(ticket.stopLoss)<ticket.price&&Number(ticket.takeProfit)>ticket.price);
- minimum='11';await assert.rejects(broker.ticket('XRPUSDT','Buy',{price:1.003,stopPct:1,targetNet:.15}),/minimum/);
+ const ticket=await broker.ticket('XRPUSDT','Buy',{price:1.003,stopPct:1,targetNet:.15});assert.ok(ticket.notional<=91);assert.ok(ticket.notional>=90);assert.ok(Number(ticket.stopLoss)<ticket.price&&Number(ticket.takeProfit)>ticket.price);
+ minimum='92';await assert.rejects(broker.ticket('XRPUSDT','Buy',{price:1.003,stopPct:1,targetNet:.15}),/minimum/);
 });
 test('bot controls reject unauthenticated calls even if a worker is installed',async()=>{
  setController({control(){throw Error('Must not reach worker')}});const handler=require('../api/bot'),res={setHeader(){},status(n){this.code=n;return this},json(d){this.body=d;return this}};
  try{await handler({method:'POST',headers:{},body:{action:'start'}},res);assert.equal(res.code,401)}finally{setController(null)}
 });
 test('per-trade risk and remaining dollar budget are checked before submission',async t=>{
- const {worker,broker}=setup(t);broker.s.equity=50;broker.s.available=50;await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/stop risk/);
- broker.s.equity=1000;broker.s.available=1000;
- await worker.control({action:'start',confirm:'START REAL $10 BOT',dailyLimit:.1});await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/budget/);
+ const {worker,broker}=setup(t);broker.s.equity=450;broker.s.available=450;const originalTicket=broker.ticket.bind(broker);broker.ticket=async(...args)=>({...await originalTicket(...args),stopLoss:'100'});await activate(worker);await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/stop risk/);
+ broker.ticket=originalTicket;broker.s.equity=1000;broker.s.available=1000;
+ await worker.control({action:'start',confirm:'START REAL $90 BOT',dailyLimit:.1});await worker.cycle();assert.equal(broker.sent.length,0);assert.match(worker.status().message,/budget/);
 });
 test('broker fails on stale successful responses and incomplete account pages',async()=>{
  const broker=new LiveBroker({env:{BYBIT_LIVE_API_KEY:'fixture-key',BYBIT_LIVE_API_SECRET:'fixture-secret'},fetcher:async()=>({ok:true,json:async()=>({retCode:0,time:Date.now()-60000,result:{}})})});
@@ -132,7 +132,7 @@ test('order reconciliation verifies identity and a nonnegative executed quantity
 });
 test('rounded live quantity targets estimated net profit using actual notional',async()=>{
  const broker=new LiveBroker();broker.request=async(method,route)=>route.includes('instruments')?{list:[{symbol:'XRPUSDT',quoteCoin:'USDT',contractType:'LinearPerpetual',status:'Trading',lotSizeFilter:{qtyStep:'3',minOrderQty:'3',maxMktOrderQty:'100',minNotionalValue:'5'},priceFilter:{tickSize:'.0001'}}]}:{list:[{symbol:'XRPUSDT',ask1Price:'1',bid1Price:'.9999',markPrice:'1'}]};
- const ticket=await broker.ticket('XRPUSDT','Buy',{price:1,stopPct:1,targetNet:.15});assert.equal(ticket.notional,9);
+ const ticket=await broker.ticket('XRPUSDT','Buy',{price:1,stopPct:1,targetNet:.15});assert.equal(ticket.notional,90);
  const gross=(Number(ticket.takeProfit)-ticket.price)*Number(ticket.qty),exitFeeIncrement=(Number(ticket.takeProfit)-ticket.price)*Number(ticket.qty)*.0006;
  assert.ok(gross-ticket.notional*ticket.estimatedRoundTripCostRate-exitFeeIncrement>=.15-1e-9);
  await assert.rejects(broker.ticket('XRPUSDT','Buy',{price:NaN,stopPct:1,targetNet:.15}),/execution plan/);

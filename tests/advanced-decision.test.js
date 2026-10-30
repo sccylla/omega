@@ -4,7 +4,7 @@ const {decide,holdout,candles,resampleComplete,correlation,priceRules}=require('
 const {NOW,series,evidence}=require('./fixtures/advanced-evidence');
 test('fully covered synthetic evidence may qualify, with no invented profit probability',()=>{
  const x=decide(evidence(),{now:NOW});
- assert.equal(x.eligible,true);assert.equal(x.decision,'BUY');assert.equal(x.notional,10);assert.equal(x.expiresAt,NOW+10000);assert.ok(x.checks.every(c=>c.pass));
+ assert.equal(x.eligible,true);assert.equal(x.decision,'BUY');assert.equal(x.notional,90);assert.equal(x.expiresAt,NOW+10000);assert.ok(x.checks.every(c=>c.pass));
  assert.ok(x.validation.tradeCount>=20);assert.equal(x.validation.side,'BUY');assert.equal(x.validation.kind,'PRICE_ONLY_HISTORICAL_SANITY_CHECK');assert.match(x.validation.limitations,/not a prediction/);assert.match(x.scoreMeaning,/not a win probability/);
  assert.ok(x.targetNet>0&&x.stopPct>0&&x.metrics.estimatedRoundTripCostUsd>0);assert.equal(Object.hasOwn(x,'winProbability'),false);
  assert.deepEqual(JSON.parse(JSON.stringify(x)),x);
@@ -29,7 +29,7 @@ test('uncompleted candles cannot change price-only decisions or holdout outcomes
  const after=decide(e,{now:NOW});assert.equal(after.price,before.price);assert.equal(after.barTime,before.barTime);assert.equal(after.eligible,before.eligible);assert.deepEqual(after.validation,before.validation);
 });
 test('live order-book liquidity and exchange size restrictions are mandatory',()=>{
- for(const mutate of [e=>{e.book.a[0][0]=e.book.b[0][0]},e=>{e.book.ts=NOW-16000},e=>{e.book.a=e.book.a.map(l=>[l[0],'.00001'])},e=>{e.instrument.lotSizeFilter.minNotionalValue='11'},e=>{e.ticker.turnover24h='100'},e=>{e.ticker.ask1Price=String(Number(e.ticker.ask1Price)*1.01)}]){
+ for(const mutate of [e=>{e.book.a[0][0]=e.book.b[0][0]},e=>{e.book.ts=NOW-16000},e=>{e.book.a=e.book.a.map(l=>[l[0],'.00001'])},e=>{e.instrument.lotSizeFilter.minNotionalValue='92'},e=>{e.ticker.turnover24h='100'},e=>{e.ticker.ask1Price=String(Number(e.ticker.ask1Price)*1.01)}]){
   const e=evidence();mutate(e);assert.equal(decide(e,{now:NOW}).eligible,false,mutate.toString());
  }
 });
@@ -53,7 +53,7 @@ test('price-only holdout uses nonoverlapping next-open entries and reports limit
 test('current execution-cost floor raises holdout stress and can reject a previously positive sample',()=>{
  const e=evidence(),base=holdout(e,{now:NOW,side:'BUY'}),expensive=holdout(e,{now:NOW,side:'BUY',costRate:.006});
  assert.equal(base.passed,true);assert.equal(expensive.passed,false);assert.equal(expensive.roundTripCostBps,60);assert.ok(expensive.netPnl<base.netPnl);
- const elevated=evidence();elevated.ticker.fundingRate='.0005';const decision=decide(elevated,{now:NOW});assert.ok(decision.validation.roundTripCostBps>=decision.metrics.estimatedRoundTripCostUsd/10*10000);
+ const elevated=evidence();elevated.ticker.fundingRate='.0005';const decision=decide(elevated,{now:NOW});assert.ok(decision.validation.roundTripCostBps>=decision.metrics.estimatedRoundTripCostUsd/90*10000);
 });
 test('a profitable opposite-side history cannot qualify the requested losing or unsupported side',()=>{
  const e=evidence(),buy=holdout(e,{now:NOW,side:'BUY'}),sell=holdout(e,{now:NOW,side:'SELL'});
@@ -111,7 +111,7 @@ test('demo can forward-test a current qualifying setup without twenty historical
  assert.equal(demo.eligible,true);assert.equal(demo.executionPolicy,'DEMO_FORWARD_TEST');assert.equal(demo.validation.entryGate,'ADVISORY_DEMO');
  assert.equal(demo.validation.passed,false);assert.equal(demo.validation.tradeCount,0);assert.equal(demo.blockers.length,0);assert.ok(demo.warnings.length);
  assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,2);
- assert.ok(Math.abs(demo.targetNet-10*strict.targetNet)<1e-10);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
+ assert.ok(Math.abs(demo.targetNet-(100/90)*strict.targetNet)<1e-10);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
  assert.equal(decide(e,{now:NOW,mode:'unrecognized'}).eligible,false);
 });
 test('demo history advisory never bypasses current market data, direction, spread, funding or sizing rules',()=>{

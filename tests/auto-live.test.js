@@ -4,14 +4,14 @@ const {factory,issueArm,verifyArm,guardAccount}=require('../api/auto-live')._tes
 const env={OMEGA_MANUAL_LIVE_ORDERS_ENABLED:'true',OMEGA_BROWSER_AUTOLIVE_ENABLED:'true',OMEGA_SESSION_SECRET:'q'.repeat(64)};
 const now=1800000005000,bar=Math.floor((now-300000)/300000)*300000;
 const auth={getCookie:r=>r.headers.cookie==='owner'?'owner':null,isAuthed:r=>r.headers.cookie==='owner',assertOrigin:r=>{if(r.headers.origin!=='https://example.test'||r.headers['x-omega-request']!=='1')throw Object.assign(Error('Origin rejected'),{status:403})}};
-const clean=()=>({equity:120,available:80,pnlToday:0,positions:[],pending:[]});
+const clean=()=>({equity:500,available:400,pnlToday:0,positions:[],pending:[]});
 const plan=()=>({symbol:'XRPUSDT',side:'BUY',eligible:true,executionPolicy:'LIVE_STRICT',barTime:bar,expiresAt:now+50000,price:1.01,targetNet:0.12,reason:'All required checks passed'});
 function fake(){
  const writes=[];let open=false,pending=false,existing=null;
  const broker={
   ready:()=>true,
   snapshot:async()=>({...clean(),positions:open?[{symbol:'XRPUSDT'}]:[],pending:pending?[{symbol:'XRPUSDT'}]:[]}),
-  ticket:async()=>({symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'9.9',notional:9.999,stopLoss:'1.005',takeProfit:'1.04',estimatedRoundTripCostRate:.0022}),
+  ticket:async(symbol,side,plan)=>({symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'89.15',notional:90.0415,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}),
   order:async()=>existing,
   leverage:async()=>{writes.push('leverage')},
   enter:async(ticket,link)=>{writes.push({ticket,link});return{orderId:'id-1'}}

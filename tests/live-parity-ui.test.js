@@ -16,14 +16,14 @@ test('live scanner is read-only until the user opens a signed preview and explic
  assert.ok(script.includes('/api/live?action=status'));
  assert.ok(script.includes('/api/manual-live'));
  assert.ok(script.includes("post:{action:'preview'"));
- assert.ok(script.includes("post:{action:'execute',confirm:'PLACE REAL $10 TRADE'"));
+ assert.ok(script.includes("post:{action:'execute',confirm:'PLACE REAL $90 TRADE'"));
  assert.ok(!script.includes("action:'start'"));
 });
 test('production worker remains explicitly gated and exchange protective orders remain in code',()=>{
  const bot=fs.readFileSync(path.join(root,'lib/trading-worker.js'),'utf8');
  const broker=fs.readFileSync(path.join(root,'lib/live-broker.js'),'utf8');
  assert.ok(bot.includes("this.env.OMEGA_LIVE_ORDERS_ENABLED==='true'"));
- assert.ok(bot.includes("body.confirm!=='START REAL $10 BOT'"));
+ assert.ok(bot.includes("body.confirm!=='START REAL $90 BOT'"));
  assert.ok(broker.includes("stopLoss:ticket.stopLoss"));
  assert.ok(broker.includes("takeProfit:ticket.takeProfit"));
 });
