@@ -33,7 +33,7 @@
   let account=restore(raw,now);
   if(day(now)!==account.day)account={...account,day:day(now),dayStartEquity:account.cash};
   const risk=eligibility(account,now);
-  const result=Shadow.step(account.ledger,{now,signals:risk.allowed?signals:[],quotes,connected,maxHoldMs:180000});
+  const result=Shadow.step(account.ledger,{now,signals:risk.allowed?signals:[],quotes,connected,maxHoldMs:null,cooldownMs:3000});
   if(!result.events.length)return {account:{...account,ledger:result.state},events:[],risk};
   const trades=result.events.filter(e=>e.type==='CLOSED').map(e=>e.trade);
   const net=trades.reduce((sum,t)=>sum+t.net,0);

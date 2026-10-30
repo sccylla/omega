@@ -22,7 +22,7 @@
   $('demo-seconds-trades').textContent=s.closedTrades;
   $('demo-seconds-wins').textContent=s.winRatePct===null?'—':s.winRatePct.toFixed(1)+'%';
   $('demo-seconds-position').textContent=s.open?s.open.side+' '+s.open.symbol+' · $90 virtual open':'No open virtual position';
-  $('demo-seconds-risk').textContent=s.entryBlock||'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · 20-second cooldown · 1 position';
+  $('demo-seconds-risk').textContent=s.entryBlock||'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · 3-second cooldown · 1 position';
   const body=$('demo-seconds-history');body.replaceChildren();
   const recent=[...wallet.ledger.closed].reverse().slice(0,10);
   if(!recent.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No completed seconds trades yet.';tr.append(td);body.append(tr)}
@@ -104,8 +104,9 @@
   socket.onopen=()=>{
    if(id!==epoch||!active)return;
    lastConnected=Date.now();
-   socket.send(JSON.stringify({op:'subscribe',args:symbols.flatMap(s=>['orderbook.50.'+s,'publicTrade.'+s])}));
-   setStatus('Bybit connected. First collecting 60 seconds of real prices, then requiring a cost-aware volatility burst before a $90 Demo trade. $0.50 net remains the goal; returns are not guaranteed.');
+   const topics=symbols.flatMap(s=>['orderbook.50.'+s,'publicTrade.'+s]);
+   for(let i=0;i<topics.length;i+=10)socket.send(JSON.stringify({op:'subscribe',args:topics.slice(i,i+10)}));
+   setStatus('Bybit connected across '+symbols.length+' pairs. Gathering 60 seconds of prices and trade flow. $90 virtual entries target +$0.50 estimated net, then rescan; no forced time exit. Loss trigger remains active.');
   };
   socket.onmessage=event=>{
    if(id!==epoch||!active||document.hidden||typeof event.data!=='string'||event.data.length>900000)return;
@@ -120,7 +121,7 @@
   if(active){halt('Demo Seconds Scalper paused. Open virtual research trades are marked incomplete, not assumed closed.');return}
   if(!window.WebSocket)return setStatus('This browser does not support Bybit public WebSocket research.');
   if(document.hidden||document.body.dataset.account!=='demo')return setStatus('Switch to Demo Account and keep the tab visible.');
-  try{symbols=E.validSymbols($('demo-seconds-pairs').value);engine=E.create(symbols)}catch(e){setStatus(e.message);return}
+  try{symbols=E.validSymbols($('demo-seconds-pairs').value,{maxSymbols:20});engine=E.create(symbols,{maxSymbols:20})}catch(e){setStatus(e.message);return}
   const check=A.eligibility(wallet);if(!check.allowed){setStatus(check.reason);return}
   active=true;button.textContent='Pause Demo Seconds Scalper';const id=++epoch;connect(id);
  }

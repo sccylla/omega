@@ -4,13 +4,14 @@
  const MIN_NOTIONAL=90,GOAL_NET=.50,MAKERLESS_TAKER=.00055,EXTRA_SLIP=.00020;
  const SYMBOL=/^[A-Z0-9]{2,20}USDT$/,MAX_SYMBOLS=5,MAX_AGE_MS=2300;
  const finite=Number.isFinite,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),round=(n,d=3)=>Number(n.toFixed(d));
- const validSymbols=(raw)=>{
+ const validSymbols=(raw,{maxSymbols=5}={})=>{
   const a=Array.isArray(raw)?raw:String(raw||'').toUpperCase().split(/[,\s]+/).filter(Boolean);
-  if(!a.length||a.length>MAX_SYMBOLS||new Set(a).size!==a.length||a.some(x=>!SYMBOL.test(x)))throw Error('Choose 1–5 unique USDT futures pairs, separated by commas');
+  if(!Number.isInteger(maxSymbols)||maxSymbols<1||maxSymbols>20)throw Error('Invalid research pair limit');
+  if(!a.length||a.length>maxSymbols||new Set(a).size!==a.length||a.some(x=>!SYMBOL.test(x)))throw Error('Choose 1–'+maxSymbols+' unique USDT futures pairs, separated by commas');
   return a;
  };
- function create(symbols){
-  const list=validSymbols(symbols),stores=Object.fromEntries(list.map(symbol=>[symbol,{symbol,bids:new Map(),asks:new Map(),bookTime:0,bookSeq:0,bookReady:false,midHistory:[],trades:[],tradeIds:new Set(),tradeTime:0,lastUpdate:0}]));
+ function create(symbols,{maxSymbols=5}={}){
+  const list=validSymbols(symbols,{maxSymbols}),stores=Object.fromEntries(list.map(symbol=>[symbol,{symbol,bids:new Map(),asks:new Map(),bookTime:0,bookSeq:0,bookReady:false,midHistory:[],trades:[],tradeIds:new Set(),tradeTime:0,lastUpdate:0}]));
   function ingest(msg,now=Date.now()){
    if(!msg||typeof msg.topic!=='string'||!finite(now))return false;
    const parsed=/^(orderbook\.50|publicTrade)\.([A-Z0-9]+USDT)$/.exec(msg.topic);
