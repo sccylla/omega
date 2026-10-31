@@ -26,14 +26,14 @@ async function scan(trading){
    $('live-auto-positions').textContent=account.openPositions??'—';
    if(!Number.isFinite(account.equity)||!Number.isFinite(account.available))throw Error('Bybit account balance unavailable');
    if(account.openPositions>0){status('Existing Bybit position open. Waiting for its exchange-side TP/SL before scanning again.','MANAGING');return}
-   if(account.equity<450||account.available<90){status('A $90 trade at no more than 20% account exposure needs at least $450 equity and $90 available margin.','BALANCE LOW');return}
+   if(account.equity<75||account.available<15){status('A $15 live trade at no more than 20% account exposure needs at least $75 equity and $15 available.','BALANCE LOW');return}
   }
   status('Scanning Bybit futures…','SCANNING');
   const universe=await M.within(signal=>request('/api/scanner?market=futures&page=1&size=15',null,signal),{signal:controller.signal,timeoutMs:15000,label:'Market universe'});
   if(!Array.isArray(universe.rows))throw Error('No futures markets returned');
   $('live-auto-universe').textContent=Number(universe.universe||universe.rows.length).toLocaleString();
   const {results,picks,coverage,summary,nextAfter}=await M.scanMarkets(universe.rows,{
-   analyze:(symbol,opts)=>D.analyze(symbol,{...opts,mode:'live'}),
+   analyze:(symbol,opts)=>D.analyze(symbol,{...opts,mode:'live_small'}),
    signal:controller.signal,maxMs:30000,requestTimeoutMs:18000,concurrency:4,
    allowPartial:true,startAfter:cursor,selectionWindowMs:trading?1200:null,
    isCancelled:canceled,canEnter:p=>p.executionPolicy==='LIVE_STRICT'&&p.barTime!==lastBar,
@@ -52,8 +52,8 @@ async function scan(trading){
   const order=await request('/api/auto-live',{action:'enter',symbol:selected.symbol,token},controller.signal);
   if(!order.submitted)throw Error('Bybit did not acknowledge an order');
   lastBar=selected.barTime;
-  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Estimated net TP goal $0.50+ at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
-  progress('One $90+ real entry submitted. Once Bybit confirms the position is closed, the next scan may open another eligible trade.');
+  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Estimated net TP goal $0.05+ at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
+  progress('One $15 real entry submitted. After Bybit reports no open position or pending order, the next qualified scan may request another trade.');
  }catch(e){
   if(canceled())return;
   if(e.status===409){status('No eligible live entry: '+e.message,'WAITING FOR SETUP');return}
@@ -65,11 +65,11 @@ async function toggle(){
  if(busy)return;
  if(document.body.dataset.account!=='real')return status('Select Real account first.','OFF');
  if(!navigator.locks?.request)return status('This browser cannot enforce one-tab trading. Use current Chrome over HTTPS.','UNSUPPORTED');
- if(input.value!=='START REAL AUTOPILOT')return status('Type START REAL AUTOPILOT exactly to authorize automatic real-money entries.','NOT ARMED');
+ if(input.value!=='START REAL $15 AUTOPILOT')return status('Type START REAL $15 AUTOPILOT exactly to authorize browser-controlled $15 real-money entries.','NOT ARMED');
  button.disabled=true;status('Verifying Bybit account risk before arming; no order placed.','ARMING');
  try{const a=await request('/api/auto-live',{action:'arm',confirm:input.value});
   if(!a.armed||!a.token)throw Error('Server did not authorize this session');
-  token=a.token;expiry=Date.now()+a.expiresInMinutes*60000-5000;input.value='';running=true;controls();status('Real autopilot started. Scanning automatically; only qualified trades can enter.','ARMED');
+  token=a.token;expiry=Date.now()+a.expiresInMinutes*60000-5000;input.value='';running=true;controls();status('Real $15 autopilot armed for this visible browser tab only. One real position at a time, strict live checks, exchange TP/SL, and $1 daily loss gate. Orders can still lose money.','ARMED');
  }catch(e){pause('Cannot start Real autopilot: '+e.message)}
  finally{button.disabled=false}
 }
