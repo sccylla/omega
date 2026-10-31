@@ -77,16 +77,14 @@ test('small $15 execution quote uses $0.05 target without changing default $90 r
  assert.ok(small.execution(S,NOW).requiredMoveBps<legacy.execution(S,NOW).requiredMoveBps);
  assert.equal(Engine.MIN_NOTIONAL,90);
 });
-test('UI defaults to independent $88 wallet and preserves access to older $100 virtual trade records',()=>{
- const root=path.resolve(__dirname,'..');
- const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+test('legacy virtual $88 scalper ledgers are preserved in source but not mounted as active UI',()=>{
+ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8');
- assert.match(html,/id="demo-seconds-profile"/);
- assert.match(html,/value="small" selected/);
+ assert.ok(!html.includes('id="demo-seconds-profile"'));
+ assert.ok(!html.includes('/static/demo-seconds-lab.js'));
+ assert.ok(!html.includes('id="demo-seconds-lab"'));
  assert.match(client,/omega_demo_seconds_wallet_88_v1/);
  assert.match(client,/omega_demo_seconds_wallet_v1/);
- assert.match(client,/let walletKey=SMALL_KEY/);
- assert.ok(!client.includes('/v5/order/create'));
 });
 
 test('full small-account book/trade pipeline can actually open one $15 virtual position',()=>{
