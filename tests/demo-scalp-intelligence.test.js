@@ -80,14 +80,14 @@ test('Entry metadata follows a new virtual trade through to its exit without cha
  assert.ok(trade.net>=.5);
  assert.equal(last.account.wins,1);
 });
-test('UI exposes honest loss analytics; funded Real code never loads demo intelligence',()=>{
+test('archived demo-loss research is not loaded into the Real-only seconds scout',()=>{
  const root=path.join(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8'),
- client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8'),
- real=fs.readFileSync(path.join(root,'static/seconds-lab.js'),'utf8');
- assert.match(html,/src="\/static\/demo-scalp-intelligence.js"/);
- for(const id of ['demo-scalp-intel-status','demo-scalp-intel-costs','demo-scalp-intel-markets'])
-  assert.match(html,new RegExp('id="'+id+'"'));
+  client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8'),
+  real=fs.readFileSync(path.join(root,'static/seconds-lab.js'),'utf8');
+ assert.doesNotMatch(html,/src="\/static\/demo-scalp-intelligence.js"/);
+ assert.doesNotMatch(html,/id="demo-scalp-intel-status"/);
  assert.match(client,/intelligence.update\(preSignals,histories,wallet.ledger.closed,now\)/);
  assert.ok(!real.includes('OmegaDemoScalpIntelligence'));
+ assert.ok(!real.includes('/v5/order/create'));
  assert.ok(!client.includes('/v5/order/create'));
 });
