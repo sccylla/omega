@@ -33,7 +33,7 @@ async function scan(trading){
   if(!Array.isArray(universe.rows))throw Error('No futures markets returned');
   $('live-auto-universe').textContent=Number(universe.universe||universe.rows.length).toLocaleString();
   const {results,picks,coverage,summary,nextAfter}=await M.scanMarkets(universe.rows,{
-   analyze:(symbol,opts)=>D.analyze(symbol,{...opts,mode:'live'}),
+   analyze:(symbol,opts)=>D.analyze(symbol,{...opts,mode:'live_small'}),
    signal:controller.signal,maxMs:30000,requestTimeoutMs:18000,concurrency:4,
    allowPartial:true,startAfter:cursor,selectionWindowMs:trading?1200:null,
    isCancelled:canceled,canEnter:p=>p.executionPolicy==='LIVE_STRICT'&&p.barTime!==lastBar,
