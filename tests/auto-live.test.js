@@ -74,3 +74,36 @@ test('status is observational, never arms or trades',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,authentication:auth,clock:()=>now});
  const r=await call(h,'GET');assert.equal(r.code,200);assert.equal(r.data.mode,'BROWSER_CONTROLLED_LIVE');assert.equal(f.writes.length,0);
 });
+
+test('small live autopilot can arm with $88 but not $74 equity or <$15 available',async()=>{
+ const f=fake();
+ const handler=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
+ const result=await call(handler,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'});
+ assert.equal(result.code,200);
+ assert.equal(f.writes.length,0);
+ for(const snapshot of [{...clean(),equity:74},{...clean(),available:14},{...clean(),pnlToday:-1.01}])
+  assert.throws(()=>guardAccount(snapshot),/equity|margin|loss/i);
+});
+test('autopilot cannot be armed by legacy phrase or without the small live server switch',async()=>{
+ const f=fake();
+ const noSwitch=factory({env:{...env,OMEGA_SMALL_LIVE_ORDERS_ENABLED:'false'},broker:f.broker,authentication:auth,clock:()=>now});
+ assert.equal((await call(noSwitch,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'})).code,503);
+ const valid=factory({env,broker:f.broker,authentication:auth,clock:()=>now});
+ assert.equal((await call(valid,'POST',{action:'arm',confirm:'START REAL AUTOPILOT'})).code,400);
+ assert.equal(f.writes.length,0);
+});
+test('browser autopilot UI and research engine do not reference the old $450/$90 order gate',()=>{
+ const fs=require('node:fs'),path=require('node:path'),root=path.resolve(__dirname,'..');
+ const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ const ui=fs.readFileSync(path.join(root,'static/live-auto.js'),'utf8');
+ const api=fs.readFileSync(path.join(root,'api/auto-live.js'),'utf8');
+ const decision=fs.readFileSync(path.join(root,'api/decision.js'),'utf8');
+ assert.match(html,/START REAL \$15 AUTOPILOT/);
+ assert.match(ui,/mode:'live_small'/);
+ assert.match(ui,/account.equity<75\|\|account.available<15/);
+ assert.match(api,/notionalUsd:AUTO_TRADE_USD,maxNotionalUsd:AUTO_MAX_TRADE_USD/);
+ assert.match(api,/AUTO_MIN_EQUITY_USD=75/);
+ assert.match(decision,/mode==='live_small'\?15:90/);
+ assert.doesNotMatch(api,/\$90 minimum position requires/);
+ assert.doesNotMatch(ui,/account.equity<450/);
+});
