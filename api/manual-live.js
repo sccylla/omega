@@ -99,5 +99,13 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
  };
  return handler;
 }
-module.exports=factory();
+// The website small-account workflow uses this existing API route so the
+// Vercel Hobby deployment stays under its 12-function limit. The legacy $90
+// route preserves all prior input and risk behavior unless profile=small.
+const legacy=factory();
+const small=require('../lib/small-live');
+module.exports=(req,res)=>{
+ const profile=req.method==='GET'?req.query?.profile:req.body?.profile;
+ return profile==='small'?small(req,res):legacy(req,res);
+};
 module.exports._test={factory,makePreview,verifyPreview,risk,idForBar};

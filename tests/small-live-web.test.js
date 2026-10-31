@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
-const {factory,verifyPreview,risk}=require('../api/small-live')._test;
+const {factory,verifyPreview,risk}=require('../lib/small-live')._test;
 const secret='s'.repeat(64);
 const cookie='session-cookie-012345678901234567890123456789';
 const TIME=Date.UTC(2026,9,31,9,0,0);
@@ -119,6 +119,7 @@ test('webpage presents $88 controls, explicit confirmation and no Telegram runti
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const js=fs.readFileSync(path.join(root,'static/small-live.js'),'utf8');
  const server=fs.readFileSync(path.join(root,'scripts/server.js'),'utf8');
+ const router=fs.readFileSync(path.join(root,'api/manual-live.js'),'utf8');
  for(const id of ['small-live-panel','small-live-equity','small-live-available','small-live-preview','small-live-confirm','small-live-submit','small-live-reconcile'])
   assert.ok(html.includes('id="'+id+'"'),id);
  assert.match(html,/small-live\.js/);
@@ -126,6 +127,8 @@ test('webpage presents $88 controls, explicit confirmation and no Telegram runti
  assert.match(js,/post|action:'preview'/);
  assert.match(js,/action:'execute',confirm:'PLACE REAL \$15 TRADE'/);
  assert.match(js,/previewToken/);
+ assert.match(router,/profile==='small'/);
+ assert.match(js,/\/api\/manual-live\?profile=small/);
  assert.ok(!server.includes('telegram-demo-bot'));
  assert.ok(!fs.existsSync(path.join(root,'lib/telegram-demo-bot.js')));
 });

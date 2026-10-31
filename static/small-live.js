@@ -39,7 +39,7 @@
   if(busy)return;
   refreshBtn.disabled=true;
   try{
-   const info=await api('/api/small-live?action=status');
+   const info=await api('/api/manual-live?profile=small&action=status');
    liveStatus=info;
    state.textContent=!info.configured?'BYBIT NOT CONNECTED':info.enabled?'REAL ORDER CONFIRMATION AVAILABLE':'READ ONLY / ORDERS OFF';
    previewBtn.disabled=!info.configured;
@@ -65,7 +65,7 @@
   if(busy)return;
   busy=true;reset();previewBtn.disabled=true;status.textContent='Reading Bybit quote, exchange quantity rules and account risk. No order sent.';
   try{
-   const d=await api('/api/small-live',{action:'preview',symbol:symbol.value,side:side.value});
+   const d=await api('/api/manual-live?profile=small',{profile:'small',action:'preview',symbol:symbol.value,side:side.value});
    previewToken=d.previewToken;previewExpires=Date.now()+d.expiresInSeconds*1000;
    fields([['SYMBOL',d.symbol],['SIDE',d.side],['BROKER ORDER NOTIONAL',money(d.notional)],
     ['QUANTITY',d.quantity],['EST. ENTRY',d.entryEstimate],['STOP LOSS',d.stopLoss],
@@ -82,7 +82,7 @@
   busy=true;const signed=previewToken;reset();previewBtn.disabled=true;submit.disabled=true;
   status.textContent='Submitting ONE user-confirmed real order. Do not retry if Bybit does not return a clear result.';
   try{
-   const result=await api('/api/small-live',{action:'execute',confirm:'PLACE REAL $15 TRADE',previewToken:signed});
+   const result=await api('/api/manual-live?profile=small',{profile:'small',action:'execute',confirm:'PLACE REAL $15 TRADE',previewToken:signed});
    lastOrder={symbol:result.symbol,link:result.orderLinkId};
    fields([['BYBIT MARKET',result.symbol],['DIRECTION',result.side],['ORDER LINK',result.orderLinkId],
     ['ACKNOWLEDGED ORDER ID',result.orderId||'Awaiting Bybit reconciliation'],
@@ -98,7 +98,7 @@
   busy=true;reconcile.disabled=true;
   try{
    const params=new URLSearchParams({action:'order',symbol:lastOrder.symbol,link:lastOrder.link});
-   const d=await api('/api/small-live?'+params.toString());
+   const d=await api('/api/manual-live?profile=small&'+params.toString());
    status.textContent='Bybit order '+d.orderLinkId+': '+d.status+'. Verify your position and protective TP/SL directly at Bybit.';
   }catch(e){status.textContent='Order reconciliation unavailable: '+e.message}
   finally{busy=false;reconcile.disabled=false}
