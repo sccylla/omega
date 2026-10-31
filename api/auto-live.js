@@ -36,7 +36,7 @@ function guardAccount(snapshot){
  if(snapshot.equity<AUTO_MIN_EQUITY_USD||snapshot.available<AUTO_TRADE_USD||snapshot.equity*MAX_EXPOSURE_FRACTION<AUTO_TRADE_USD)throw error(409,'A $15 live position requires at least $75 equity and $15 available under the 20% exposure rule');
  if(snapshot.pnlToday<=-Math.min(1,snapshot.equity*.02))throw error(409,'Daily loss threshold reached; entries suspended');
 }
-function factory({env=process.env,broker=new LiveBroker({env}),analyze=async symbol=>decide(await collectEvidence(symbol,{fresh:true}),{mode:'live',now:Date.now(),notional:AUTO_TRADE_USD}),authentication=auth,clock=()=>Date.now()}={}){
+function factory({env=process.env,broker=new LiveBroker({env}),analyze=async symbol=>decide(await collectEvidence(symbol,{fresh:true}),{mode:'live_small',now:Date.now(),notional:AUTO_TRADE_USD}),authentication=auth,clock=()=>Date.now()}={}){
  const enabled=()=>env.OMEGA_SMALL_LIVE_ORDERS_ENABLED==='true'&&env.OMEGA_BROWSER_AUTOLIVE_ENABLED==='true';
  return async function handler(req,res){
   res.setHeader('Cache-Control','private, no-store');
