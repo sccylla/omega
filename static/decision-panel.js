@@ -40,7 +40,7 @@
   try{
    let symbol=$('decision-symbol').value.trim().toUpperCase();if(!symbol.endsWith('USDT'))symbol+='USDT';
    if(!/^[A-Z0-9]{2,24}USDT$/.test(symbol))throw Error('Enter a USDT market symbol such as BTC or ETH.');
-   const result=await analyze(symbol,{mode:document.body.dataset.account==='real'?'live':'demo'});if(request!==sequence)return;
+   const result=await analyze(symbol,{mode:document.body.dataset.account==='real'?'live_small':'demo'});if(request!==sequence)return;
    render(result,symbol);$('decision-analysis-message').textContent='Analysis complete. This action never opens a trade.';
   }catch(e){if(request===sequence){render({eligible:false,reason:e.message,checks:[{label:'Market evidence available',pass:false}]},'MARKET');$('decision-analysis-message').textContent='No trade: evidence could not be verified.'}}finally{if(request===sequence)button.disabled=false}
  });
