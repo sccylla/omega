@@ -69,7 +69,7 @@ async function toggle(){
  button.disabled=true;status('Verifying Bybit account risk before arming; no order placed.','ARMING');
  try{const a=await request('/api/auto-live',{action:'arm',confirm:input.value});
   if(!a.armed||!a.token)throw Error('Server did not authorize this session');
-  token=a.token;expiry=Date.now()+a.expiresInMinutes*60000-5000;input.value='';running=true;controls();status('Real $15 autopilot armed for this visible browser tab only. One real position at a time, strict live checks, exchange TP/SL, and $1 daily loss gate. Orders can still lose money.','ARMED');
+  token=a.token;expiry=Date.now()+a.expiresInMinutes*60000-5000;input.value='';running=true;controls();window.dispatchEvent(new CustomEvent('omega:strategy-armed',{detail:'futures'}));status('Real $15 autopilot armed for this visible browser tab only. One real position at a time, strict live checks, exchange TP/SL, and $1 daily loss gate. Orders can still lose money.','ARMED');
  }catch(e){pause('Cannot start Real autopilot: '+e.message)}
  finally{button.disabled=false}
 }
@@ -77,6 +77,7 @@ button.addEventListener('click',toggle);
 $('live-auto-scan-only').addEventListener('click',()=>scan(false));
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause('Real autopilot paused when tab became hidden. Exchange stop/target orders remain active.')});
 window.addEventListener('omega:account-mode',()=>{if(running)pause('Real autopilot paused after account change.')});
+window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='scalper'&&running)pause('Futures Trader paused because Real Scalper was armed.')});
 window.addEventListener('beforeunload',()=>{running=false;token=null});
 controls();
 setInterval(()=>{
