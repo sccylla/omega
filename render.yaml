@@ -35,13 +35,7 @@ services:
         sync: false
       - key: OMEGA_SESSION_SECRET
         sync: false
-      # Optional Telegram DEMO controller. Leave unset until the user
-      # creates a bot with BotFather; never commit the token to Git.
-      - key: OMEGA_TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: OMEGA_TELEGRAM_OWNER_CHAT_ID
-        sync: false
-      # Explicit opt-in for ONE owner-confirmed $15 real order at a time.
-      # Never enabled by deploying code.
-      - key: OMEGA_TELEGRAM_REAL_ORDERS_ENABLED
+      # Optional Vercel website-only manual $15 live order switch.
+      # Disabled by default; configure only after broker credential validation.
+      - key: OMEGA_SMALL_LIVE_ORDERS_ENABLED
         value: "false"

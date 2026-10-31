@@ -16,15 +16,6 @@ fs.writeSync(lockFd,String(process.pid));
 const worker=new TradingWorker({directory});
 setController(worker);
 setLocalStore(new FilePaperStore(directory));
-const {OmegaTelegramBot}=require('../lib/telegram-demo-bot');
-let telegram=null;
-// The Telegram bot is optional and controls only the independent $88 paper
-// ledger. Neither Telegram commands nor its market feed can arm live trades.
-if(process.env.OMEGA_TELEGRAM_BOT_TOKEN){
- telegram=new OmegaTelegramBot({directory});
- telegram.start();
- console.log('OMEGA Telegram DEMO controller initialized; owner authorization required');
-}
 const timer=setInterval(()=>worker.cycle(),15000);
 const config = require(path.join(root, 'vercel.json'));
 const apis = new Set(['market','demo','paper','quant','intelligence','forex-demo','scanner','live','bot','decision','quote']);
@@ -94,7 +85,6 @@ server.listen(Number(process.env.PORT || process.env.OMEGA_DEV_PORT || 3000), pr
 });
 for (const signal of ['SIGINT','SIGTERM']) process.on(signal, () => {
   clearInterval(timer);
-  if(telegram)telegram.stop();
   // Drain in-flight broker work before releasing the single-worker lock.
   worker.queue.finally(()=>server.close(()=>{fs.closeSync(lockFd);fs.unlinkSync(lock);process.exit(0)}));
 });

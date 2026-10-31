@@ -47,3 +47,20 @@
 .live-autopilot .auto-shortlist>div{border:1px solid #304558;padding:10px 14px;border-radius:8px;color:#a7bfcc;font-size:12px}
 .live-auto-armed{border-color:#3e8965!important}
 @media(max-width:780px){.live-auto-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.live-autopilot{padding:17px}.live-auto-start input,.live-auto-start button{width:100%}}
+
+/* Small capital real-account trading: separate, explicit order previews. */
+.small-live{border:1px solid #356b63;background:linear-gradient(135deg,#102a2b,#0c1e2b 72%);}
+.small-live .live-parity-heading{align-items:center;}
+.small-live-balance{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:18px 0;}
+.small-live-balance>div{padding:14px;border:1px solid #335969;border-radius:11px;background:#0e2530;}
+.small-live-balance small{display:block;color:#a8bcc6;font-size:10px;letter-spacing:.06em;}
+.small-live-balance strong{display:block;font-size:22px;color:#e9f9f5;margin-top:5px;}
+.small-live-control{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:16px 0;}
+.small-live-control label{display:flex;flex-direction:column;gap:8px;color:#bbd7df;font-size:12px;flex:1;min-width:140px;}
+.small-live-control select,.small-live-approval input{padding:12px;border:1px solid #3b5268;border-radius:9px;background:#0b1824;color:#e5f4fb;min-height:43px;}
+.small-live-approval{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:18px 0;}
+.small-live-approval label{font-size:12px;color:#c6d4e1;flex:2;min-width:220px;line-height:1.7;}
+.small-live-approval input{flex:2;min-width:210px;}
+.small-live-approval button{min-height:43px;}
+.small-live button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:780px){.small-live-balance{grid-template-columns:repeat(2,minmax(0,1fr))}.small-live-control>*{width:100%}.small-live-approval>*{width:100%;flex:auto}}

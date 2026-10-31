@@ -3,7 +3,7 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'ind
 test('manual live workflow displays real confirmation and exchange-managed exits',()=>{
  for(const id of ['live-preview','live-manual-ticket','live-order-confirm','live-ticket-summary','live-execute','live-prepare-specific'])assert.ok(html.includes('id="'+id+'"'),id);
  assert.ok(html.includes('PLACE REAL $90 TRADE'));
- assert.ok(html.includes('No paid worker needed'));
+ assert.ok(html.includes('No Telegram bot required'));
  assert.ok(html.includes('class="real-workspace" hidden'));
 });
 test('manual UI cannot execute without explicit confirmation and signed preview',()=>{
