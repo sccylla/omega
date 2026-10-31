@@ -24,19 +24,28 @@
     return;
    }
    setState('live-readiness-grid','Signed in to your OMEGA dashboard','ok');
-   const [w,b]=await Promise.allSettled([request('/api/manual-live'),request('/api/live?action=bybit')]);
+   const [w,b]=await Promise.allSettled([request('/api/manual-live?profile=small&action=status'),request('/api/live?action=bybit')]);
    if(b.status==='fulfilled'){
     const d=b.value,valid=Number.isFinite(d.equity)&&Number.isFinite(d.available);
     setState('live-readiness-grid',valid?'Bybit account read verified · $'+d.equity.toFixed(2)+' equity / $'+d.available.toFixed(2)+' available':'Account response missing balance',valid?'ok':'missing');
-    if(valid)setState('live-readiness-grid',d.equity>=450&&d.available>=90?'Live balance threshold met ($450 equity, $90 available)':'Insufficient balance for a $90 live trade ($450 equity, $90 available)',d.equity>=450&&d.available>=90?'ok':'missing');
+    if(valid){
+     const policy=w.status==='fulfilled'?w.value:null;
+     if(policy?.mode==='WEBSITE_SMALL_LIVE_MANUAL'&&
+       Number.isFinite(policy.minEquityUsd)&&Number.isFinite(policy.tradeUsd)){
+      const enough=d.equity>=policy.minEquityUsd&&d.available>=policy.tradeUsd;
+      const threshold='($'+policy.minEquityUsd.toFixed(0)+' equity, $'+policy.tradeUsd.toFixed(0)+' available)';
+      setState('live-readiness-grid',enough?'Small-account balance meets the $15 trade requirement '+threshold:'Insufficient balance for a $15 live trade '+threshold,enough?'ok':'missing');
+      if(Number(d.openPositions)>0)setState('live-readiness-grid','An existing Bybit position blocks new entries until reconciled','warn');
+     }else setState('live-readiness-grid','Cannot verify small-account minimums from the server; no trade authorized','missing');
+    }
    }else setState('live-readiness-grid','Broker account read failed: '+b.reason.message,'missing');
    if(w.status==='fulfilled'){
     const d=w.value;
-    setState('live-readiness-grid',d.configured?'Bybit credentials available for manual order requests':'Bybit trading credentials missing',d.configured?'ok':'missing');
-    setState('live-readiness-grid',d.enabled?'Manual execution switch enabled · every order needs confirmation':'Manual order execution switch is off',d.enabled?'warn':'missing');
-    summary.textContent=d.enabled&&d.configured?'Manual $90+ trading is available after fresh signal, balance, exchange and risk checks. No order is automatic.':'Manual execution is currently disabled; market scanning remains read-only.';
+    setState('live-readiness-grid',d.configured?'Bybit credentials available for $15 manually confirmed orders':'Bybit trading credentials missing',d.configured?'ok':'missing');
+    setState('live-readiness-grid',d.enabled?'$15 real orders enabled · individual confirmation still required':'$15 real orders OFF · previews only',d.enabled?'warn':'missing');
+    summary.textContent=d.enabled&&d.configured?'Use the $15 small-account panel to prepare and individually confirm one real trade after all market and risk checks. Automatic real trading remains off.':'Use the $15 small-account panel. Real orders are disabled until the private server switch and Bybit credentials are configured. The legacy $90/$450 workflow is separate.';
    }else{
-    setState('live-readiness-grid','Manual order endpoint unavailable: '+w.reason.message,'missing');
+    setState('live-readiness-grid','Small-account live endpoint unavailable: '+w.reason.message,'missing');
     summary.textContent='Real-money trading is not ready. Market scanning remains read-only.';
    }
   }catch(e){setState('live-readiness-grid','Readiness check unavailable: '+e.message,'missing');summary.textContent='No change to your live trading state.'}
