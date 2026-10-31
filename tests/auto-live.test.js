@@ -1,17 +1,17 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {factory,issueArm,verifyArm,guardAccount}=require('../api/auto-live')._test;
-const env={OMEGA_MANUAL_LIVE_ORDERS_ENABLED:'true',OMEGA_BROWSER_AUTOLIVE_ENABLED:'true',OMEGA_SESSION_SECRET:'q'.repeat(64)};
+const env={OMEGA_SMALL_LIVE_ORDERS_ENABLED:'true',OMEGA_BROWSER_AUTOLIVE_ENABLED:'true',OMEGA_SESSION_SECRET:'q'.repeat(64)};
 const now=1800000005000,bar=Math.floor((now-300000)/300000)*300000;
 const auth={getCookie:r=>r.headers.cookie==='owner'?'owner':null,isAuthed:r=>r.headers.cookie==='owner',assertOrigin:r=>{if(r.headers.origin!=='https://example.test'||r.headers['x-omega-request']!=='1')throw Object.assign(Error('Origin rejected'),{status:403})}};
-const clean=()=>({equity:500,available:400,pnlToday:0,positions:[],pending:[]});
+const clean=()=>({equity:88,available:88,pnlToday:0,positions:[],pending:[]});
 const plan=()=>({symbol:'XRPUSDT',side:'BUY',eligible:true,executionPolicy:'LIVE_STRICT',barTime:bar,expiresAt:now+50000,price:1.01,targetNet:0.12,reason:'All required checks passed'});
 function fake(){
  const writes=[];let open=false,pending=false,existing=null;
  const broker={
   ready:()=>true,
   snapshot:async()=>({...clean(),positions:open?[{symbol:'XRPUSDT'}]:[],pending:pending?[{symbol:'XRPUSDT'}]:[]}),
-  ticket:async(symbol,side,plan)=>({symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'89.15',notional:90.0415,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}),
+  ticket:async(symbol,side,plan,options)=>{assert.deepEqual(options,{notionalUsd:15,maxNotionalUsd:16});return{symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'14.85',notional:15.0007,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}},
   order:async()=>existing,
   leverage:async()=>{writes.push('leverage')},
   enter:async(ticket,link)=>{writes.push({ticket,link});return{orderId:'id-1'}}
@@ -23,7 +23,7 @@ async function call(h,method,body,headers={}){const req={method,body,headers:{co
 test('real autopilot arming is explicit, one hour, authenticated and bound to login cookie',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
  assert.equal((await call(h,'POST',{action:'arm',confirm:'start'})).code,400);
- const armed=await call(h,'POST',{action:'arm',confirm:'START REAL AUTOPILOT'});assert.equal(armed.code,200);assert.equal(armed.data.armed,true);
+ const armed=await call(h,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'});assert.equal(armed.code,200);assert.equal(armed.data.armed,true);
  assert.equal(f.writes.length,0);
  const token=armed.data.token;
  assert.ok(verifyArm({headers:{cookie:'owner'}},token,env,auth,now));
@@ -32,12 +32,13 @@ test('real autopilot arming is explicit, one hour, authenticated and bound to lo
 });
 test('fresh strict live entry has exchange TP/SL, requires arm and rejects duplicate positions',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
- const armed=(await call(h,'POST',{action:'arm',confirm:'START REAL AUTOPILOT'})).data;
+ const armed=(await call(h,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'})).data;
  assert.equal((await call(h,'POST',{action:'enter',symbol:'XRPUSDT'})).code,403);
  assert.equal(f.writes.length,0);
  const accepted=await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token:armed.token});
  assert.equal(accepted.code,202);assert.equal(accepted.data.submitted,true);
  assert.deepEqual(f.writes.map(x=>typeof x==='string'?x:'enter'),['leverage','enter']);
+ assert.ok(f.writes[1].ticket.notional<=16);
  assert.ok(f.writes[1].ticket.stopLoss&&f.writes[1].ticket.takeProfit);
  f.setOpen(true);
  assert.equal((await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token:armed.token})).code,409);
