@@ -56,15 +56,14 @@ test('New virtual fill records gross profit, fees, slippage and correct net wins
  assert.equal(Number((t.gross-t.fees-t.slippage).toFixed(4)),t.net);
  assert.equal(out.account.wins,1);assert.equal(out.account.closedTrades,1);
 });
-test('production loads the live seconds scout but not archived demo experimental virtual scalp',()=>{
+test('Production Demo loads only Demo guard and preserves prior losses and $90 size',()=>{
  const root=path.resolve(__dirname,'..');
  const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8');
  const real=fs.readFileSync(path.join(root,'static/seconds-lab.js'),'utf8');
- assert.ok(!index.includes('src="/static/demo-seconds-guard.js"'));
- assert.ok(!index.includes('LIFETIME WIN RATE (ALL VERSIONS)'));
- assert.ok(!index.includes('src="/static/demo-seconds-lab.js"'));
- assert.ok(index.includes('src="/static/seconds-lab.js"'));
+ assert.ok(index.includes('src="/static/demo-seconds-guard.js"'));
+ assert.ok(client.includes('G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)'));
+ assert.ok(index.includes('LIFETIME WIN RATE (ALL VERSIONS)'));
  assert.ok(client.includes("const KEY='omega_demo_seconds_wallet_v1'"));
  assert.ok(!real.includes('OmegaDemoScalpGuard'));
  assert.equal(Demo.TRADE_USD,90);
