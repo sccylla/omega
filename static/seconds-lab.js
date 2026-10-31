@@ -33,6 +33,7 @@ function capture(now,items){
 }
 function stop(message){
  ++epoch;active=false;best=null;review.disabled=true;
+ window.dispatchEvent(new CustomEvent('omega:scalp-watch',{detail:null}));
  try{if(ws){ws.onopen=null;ws.onclose=null;ws.onerror=null;ws.onmessage=null;ws.close()}}catch{}
  ws=null;engine=null;latest=[];
  flushCapturesNoStop();
@@ -61,6 +62,7 @@ function render(){
  const ranked=[...latest].sort((a,b)=>Number(b.state==='WATCH')-Number(a.state==='WATCH')||
   Number(b.score||0)-Number(a.score||0));
  best=ranked.find(x=>x.state==='WATCH')||null;
+ window.dispatchEvent(new CustomEvent('omega:scalp-watch',{detail:best?{symbol:best.symbol,side:best.side,score:best.score,at:now}:null}));
  review.disabled=!best;
  const rows=$('seconds-rows');rows.replaceChildren();
  for(const o of ranked){
@@ -138,6 +140,7 @@ async function strictReview(){
  }catch(e){msg.textContent='Strict real entry review blocked: '+e.message+'. No order submitted.'}
  finally{if(active&&best)review.disabled=false}
 }
+window.OmegaSecondsScout={start:()=>{if(!active)toggle()},stop:()=>{if(active)toggle()},active:()=>active};
 button.addEventListener('click',toggle);
 review.addEventListener('click',strictReview);
 $('seconds-export').addEventListener('click',()=>{

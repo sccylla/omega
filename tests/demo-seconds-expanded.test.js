@@ -58,14 +58,12 @@ test('Interrupted data marks an open trade incomplete and does not fabricate pro
  assert.equal(ended.events[0].type,'INCOMPLETE');
  assert.equal(ended.account.closedTrades,0);
 });
-test('real-only seconds selector uses 20-market batched subscriptions without funded order calls',()=>{
+test('Demo client uses batched subscriptions and does not modify private funded execution',()=>{
  const fs=require('node:fs'),path=require('node:path'),root=path.join(__dirname,'..');
- const code=fs.readFileSync(path.join(root,'static/seconds-lab.js'),'utf8');
+ const code=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8');
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  assert.match(code,/topics\.slice\(i,i\+10\)/);
- assert.match(code,/maxSymbols:MAX_PAIRS/);
- assert.match(html,/up to 20, USDT perpetual/);
- assert.ok(html.indexOf('id="seconds-lab"')>html.indexOf('id="view-real"'));
- assert.ok(!html.includes('id="demo-seconds-lab"'));
+ assert.match(code,/maxSymbols:20/);
+ assert.match(html,/Choose up to 20 pairs/);
  assert.ok(!code.includes('/v5/order/create'));
 });

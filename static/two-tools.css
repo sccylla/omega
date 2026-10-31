@@ -1,0 +1,49 @@
+/* Omega Trader: exactly two visible trading tools in each account.
+   Supporting account and risk modules remain mounted but the old dashboard,
+   research widgets, worker panels, manual tickets and unrelated pages are hidden. */
+body{background:#08111a}
+.sidebar{display:none!important}
+.stage{margin-left:0!important;width:100%!important;max-width:none!important}
+.stage .container{width:min(1240px,100%);max-width:1240px;margin-inline:auto}
+#navigation,.nav-more,#view-overview,#view-scanner,#view-forex,#view-futures,#view-research,#view-connections{display:none!important}
+.topbar .top-left .market-indicator{display:none!important}
+#view-demo>.home-title,#view-real>.home-title{margin-top:16px;margin-bottom:14px}
+#view-demo>.home-title .reset-button{display:none!important}
+#view-demo>.demo-warning,#view-demo>.paper-sync-bar,#view-demo>#demo-manual-panel{display:none!important}
+#view-demo> :not(.home-title):not(.demo-summary):not(#demo-seconds-lab):not(#demo-auto-panel){display:none!important}
+#view-real> :not(.home-title):not(.real-banner):not(.real-balance-grid):not(#live-autopilot):not(#seconds-lab){display:none!important}
+#view-real>#seconds-lab{margin-top:16px}
+#view-demo>#demo-seconds-lab,#view-demo>#demo-auto-panel,#view-real>#live-autopilot,#view-real>#seconds-lab{
+ display:block!important;visibility:visible!important;max-width:none;border:1px solid #2a4854;
+ border-radius:18px;background:linear-gradient(145deg,#122635,#0d1a28);padding:24px;margin-bottom:22px
+}
+#view-demo>#demo-auto-panel>section{border:0!important;background:transparent!important;padding:0!important;box-shadow:none!important}
+#view-real>#seconds-lab{order:1}
+#view-real>#live-autopilot{order:2}
+#view-demo .demo-summary,#view-real .real-balance-grid{margin-bottom:24px}
+#view-demo .home-title h1,#view-real .home-title h1{font-size:clamp(30px,3.4vw,43px)}
+#view-demo .seconds-demo-notice,#view-demo .seconds-kpis,#view-demo .seconds-shadow-line{margin-block:12px}
+#view-real #seconds-recordings,#view-real #seconds-shadow-stats{font-size:12px}
+#view-real #seconds-strict-status{border-left:3px solid #67edbb;padding:12px 14px;margin:13px 0;background:#102f2d}
+#view-real .seconds-controls{display:flex;gap:10px;align-items:end;flex-wrap:wrap}
+#view-real .seconds-controls>label{flex:1 1 250px}
+#view-real .seconds-controls>button{flex:0 1 auto}
+#view-real .real-scalp-confirm{flex:1 0 100%;margin-top:13px;font-size:13px;line-height:1.5}
+#view-real #seconds-confirm{flex:1 1 260px;min-height:44px;padding:11px;border-radius:9px;border:1px solid #456071;background:#0a1822;color:#effff7}
+#view-real #seconds-trade-toggle{min-height:44px}
+#view-real #seconds-net{color:#8bebc8}
+#view-demo #demo-auto-panel .decision-details{margin-top:16px}
+#view-demo #demo-seconds-profile{max-width:100%;font-size:12px}
+#view-demo #demo-seconds-export,#view-demo #demo-seconds-reset{display:none!important}
+#view-real #seconds-export{display:none!important}
+#view-real #seconds-check{display:none!important}
+#view-real #live-auto-scan-only{display:none!important}
+#view-real .evidence-inspector{display:none!important}
+@media(max-width:700px){
+ .topbar{padding:8px 10px}.topbar .account-switch{margin-left:auto}
+ .stage .container{padding:12px}
+ #view-demo>#demo-seconds-lab,#view-demo>#demo-auto-panel,
+ #view-real>#live-autopilot,#view-real>#seconds-lab{padding:16px;border-radius:12px}
+ .seconds-controls,.live-auto-start{flex-direction:column;align-items:stretch}
+ #view-real #seconds-confirm,#view-real #seconds-trade-toggle{width:100%}
+}
