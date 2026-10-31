@@ -122,11 +122,6 @@ Public feeds require HTTPS access to `api.bybit.com` (default), with `www.okx.co
 Render's Starter service and disk may incur charges. The `autoDeployTrigger: off` setting prevents a subsequent push to GitHub from unexpectedly restarting the armed worker. For maintenance or incident response, pause new entries in the OMEGA dashboard, inspect account risk and Bybit positions, and handle in-flight orders explicitly. Do not treat Vercel or Render as guaranteed zero-outage execution.
 
 
-## Telegram-controlled $88 demo scalper
+## Website-first $88 small-capital trading
 
-OMEGA now includes an optional Telegram owner-only controller with Start/Pause, feed health, virtual balance, P&L, and notifications. It uses a separate persistent $88 virtual paper wallet and public Bybit prices; it **cannot place real-money orders**. The Telegram service requires a Telegram bot token and a single persistent Node worker; a Vercel-only deployment does not run the background Telegram bot. See [docs/telegram.md](docs/telegram.md) for BotFather setup and secure private configuration. Existing live trading remains independently disabled unless configured and authorized through its original protections.
-
-
-## Telegram real Bybit connection (individually confirmed $15 orders)
-
-The owner-only Telegram controller has additional read-only funded Bybit commands: /realstatus, /realbalance and /realpositions. Optionally, a separately enabled, explicitly confirmed /realtrade BUY XRPUSDT -> /confirmreal CODE flow can submit **one** $15 notional 1x USDT-perpetual order with attached exchange stop and target, guarded by real account risk checks and an idempotent persistent intent. It is **not an autonomous live scalper**. Default OMEGA_TELEGRAM_REAL_ORDERS_ENABLED=false; no API keys or Telegram token are configured in GitHub. The user must use private server secrets and a continuously running single bot worker. The existing browser-based $90 funded trading engine is unchanged. Refer to docs/telegram.md for private connection and risk details.
+OMEGA TRADER is controlled from its website. The $88 / $15 seconds-scalping demo remains separate from the legacy $100 practice wallet. The Real Account dashboard also has an optional manually confirmed $15 USDT-perpetual preview/entry workflow. No Telegram bots, account tokens, or continuous paid Telegram hosting are required. Bybit live API keys, dashboard authentication, current account/market checks, exchange TP/SL and a separately disabled-by-default trade switch are required to place any real order. This is not verified profitable automated scalping.
