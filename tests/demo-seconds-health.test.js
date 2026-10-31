@@ -46,7 +46,9 @@ test('demo client exposes per-pair market data health and protects real-money ex
  assert.match(client,/ENTRIES BLOCKED/);
  assert.match(client,/processing error/);
  assert.match(html,/BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT/);
- assert.match(html,/Choose up to 20 pairs/);
+ assert.match(html,/up to 20, USDT perpetual/);
+ assert.ok(html.includes('id="seconds-check"'));
+ assert.ok(!html.includes('id="demo-seconds-lab"'));
  assert.ok(!client.includes('/v5/order/create'));
  assert.ok(!client.includes('BYBIT_LIVE_API_KEY'));
 });

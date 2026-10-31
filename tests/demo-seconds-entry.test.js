@@ -46,18 +46,16 @@ test('flat price, stale data, wrong-side trade flow and excessively wide spreads
  const wide=feed(.005,{spread:.08});assert.notEqual(wide.demo.state,'WATCH');
  const missing=feed(.005,{trades:false});assert.notEqual(missing.demo.state,'WATCH');
 });
-test('only demo UI calls experimental entry model; Real research remains on strict original checks',()=>{
- const fs=require('node:fs'),path=require('node:path');
- const root=path.resolve(__dirname,'..');
+test('production website uses real-only seconds review, never experimental Demo micro-entry rules',()=>{
+ const fs=require('node:fs'),path=require('node:path'),root=path.resolve(__dirname,'..');
  const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const demo=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8');
  const real=fs.readFileSync(path.join(root,'static/seconds-lab.js'),'utf8');
- const module=fs.readFileSync(path.join(root,'static/demo-seconds-signals.js'),'utf8');
- assert.match(index,/static\/demo-seconds-signals\.js/);
- assert.match(demo,/X\.evaluate\(engine\.observation\(s,now\)\)/);
+ assert.ok(!index.includes('/static/demo-seconds-lab.js'));
+ assert.ok(!index.includes('/static/demo-seconds-signals.js'));
+ assert.ok(!index.includes('id="demo-seconds-lab"'));
+ assert.ok(real.includes("mode:'live_small'"));
  assert.ok(!real.includes('OmegaDemoSecondsSignals'));
  assert.ok(!real.includes('DEMO_EXPLORATORY_RESEARCH'));
- for(const source of [module,demo]){
-  assert.ok(!source.includes('/v5/order/create')&&!source.includes('BYBIT_LIVE_API_SECRET'));
- }
+ assert.ok(!demo.includes('/v5/order/create'));
 });

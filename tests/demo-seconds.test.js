@@ -73,25 +73,10 @@ test('wallet cash cannot reset on rollover of the bounded trade history',()=>{
  assert.equal(A.stats(restored,TIME+1000).totalNetUsd,-.87);
  assert.equal(restored.closedTrades,201);
 });
-test('Demo Seconds UI uses same market feed and strategy without any real-order calls',()=>{
- const root=path.resolve(__dirname,'..');
- const html=fs.readFileSync(path.join(root,'index.html'),'utf8'),
-  client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8'),
-  account=fs.readFileSync(path.join(root,'static/demo-seconds-account.js'),'utf8');
- for(const id of ['demo-seconds-lab','demo-seconds-start','demo-seconds-pairs','demo-seconds-equity','demo-seconds-net','demo-seconds-history','demo-seconds-reset','demo-seconds-export','demo-seconds-chart'])assert.ok(html.includes('id="'+id+'"'),id);
- assert.ok(html.indexOf('id="demo-seconds-lab"')>html.indexOf('id="view-demo"'));
- assert.ok(html.indexOf('id="demo-seconds-lab"')<html.indexOf('id="view-real"'));
- assert.ok(html.includes('/static/demo-seconds-account.js'));
- assert.ok(html.includes('/static/demo-seconds-lab.js'));
- assert.ok(client.includes("wss://stream.bybit.com/v5/public/linear"));
- assert.ok(client.includes("['orderbook.50.'+s,'publicTrade.'+s]"));
- assert.ok(client.includes("document.body.dataset.account!=='demo'"));
- assert.ok(client.includes('omega:account-mode'));
- assert.ok(client.includes('A.step(wallet,'));
- for(const src of [client,account]){
-  assert.ok(!src.includes('/v5/order/create'));
-  assert.ok(!src.includes('/api/auto-live'));
-  assert.ok(!src.includes('BYBIT_LIVE_API_KEY'));
- }
- assert.equal(E.MIN_NOTIONAL,90);assert.equal(S.GOAL_NET,undefined);
+test('archived Demo seconds simulator is not mounted in Real or Demo webpages',()=>{
+ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+ assert.ok(!html.includes('id="demo-seconds-lab"'));
+ assert.ok(!html.includes('/static/demo-seconds-lab.js'));
+ assert.ok(html.includes('id="seconds-lab"'));
+ assert.ok(html.indexOf('id="seconds-lab"')>html.indexOf('id="view-real"'));
 });
