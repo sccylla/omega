@@ -7,9 +7,9 @@ const quote=(symbol,price=100)=>({symbol,observedAt:now,askVwap:price+.01,bidVwa
 const names=['BTCUSDT','ETHUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','BNBUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','LTCUSDT'];
 const signals=names.map((symbol,i)=>({symbol,state:'WATCH',side:'BUY',score:90-i,qualityVeto:'DEMO_INTELLIGENCE_V1'}));
 const quotes=Object.fromEntries(names.map(s=>[s,quote(s)]));
-test('Demo scalper can fund ten separate $8 1x positions on its $88 wallet',()=>{
+test('Demo scalper can fund ten separate $8 1x positions on its $1500 wallet',()=>{
  let w=Demo.smallInitial(now);
- assert.equal(w.cash,88);assert.equal(Demo.SMALL_TRADE_USD,8);
+ assert.equal(w.cash,1500);assert.equal(Demo.SMALL_TRADE_USD,8);
  const out=Demo.step(w,{now,signals,quotes,connected:true});w=out.account;
  assert.equal(Shadow.openList(w.ledger).length,10);
  assert.equal(out.events.filter(x=>x.type==='OPEN').length,10);
