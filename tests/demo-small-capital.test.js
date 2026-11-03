@@ -18,27 +18,27 @@ test('new account has precisely $1500 virtual funds, 1x $100 sizing and small ne
  assert.equal(s.version,Account.SMALL_VERSION);
  assert.equal(v.wallet,1500);
  assert.equal(v.tradeNotional,8);
- assert.equal(v.targetNet,.05);
- assert.equal(v.stopNet,.08);
- assert.equal(v.dailyMaxLossUsd,1);
+ assert.equal(v.targetNet,.50);
+ assert.equal(v.stopNet,.75);
+ assert.equal(v.dailyMaxLossUsd,10);
  assert.equal(Account.eligibility(s,NOW).allowed,true);
  const o=open(s).ledger.open;
  assert.equal(o.notional,100);
- assert.equal(o.targetNet,.05);
- assert.equal(o.stopNet,.08);
+ assert.equal(o.targetNet,.50);
+ assert.equal(o.stopNet,.75);
 });
-test('small account settles after estimated $0.05 net rather than legacy $0.50',()=>{
+test('small account settles after estimated $0.50 net rather than legacy $0.50',()=>{
  const t=NOW+100,account=open(Account.smallInitial(NOW),t);
  const out=Account.step(account,{now:t+1000,quotes:{[S]:q(t+1000,101.2,101.22)},connected:true});
  assert.equal(out.events[0].type,'CLOSED');
  assert.ok(out.events[0].trade.net>=.05);
  assert.equal(out.events[0].trade.notional,100);
- assert.match(out.events[0].trade.reason,/\$0\.05 net TP/);
+ assert.match(out.events[0].trade.reason,/\$0\.50 net TP/);
  assert.ok(out.events[0].trade.fees>0&&out.events[0].trade.slippage>0);
  assert.equal(Account.stats(out.account,t+1000).closedTrades,1);
  assert.ok(out.account.cash>1500);
 });
-test('small account retains protective -$0.08 stop and no forced 45-second time exit',()=>{
+test('small account retains protective -$0.75 stop and no forced 45-second time exit',()=>{
  const t=NOW+100,a=open(Account.smallInitial(NOW),t);
  const held=Account.step(a,{now:t+180000,quotes:{[S]:q(t+180000)},connected:true});
  assert.equal(held.account.ledger.open.notional,100);
@@ -46,14 +46,14 @@ test('small account retains protective -$0.08 stop and no forced 45-second time 
  const stopped=Account.step(held.account,{now:t+181000,quotes:{[S]:q(t+181000,98.9,98.92)},connected:true});
  assert.equal(stopped.events[0].type,'CLOSED');
  assert.ok(stopped.events[0].trade.net<=-.08);
- assert.match(stopped.events[0].trade.reason,/\$0\.08 loss trigger/);
+ assert.match(stopped.events[0].trade.reason,/\$0\.75 loss trigger/);
 });
 test('a $1 closed daily loss prevents new positions but does not erase cash/history',()=>{
  const s=Account.smallInitial(NOW);
- const blocked={...s,cash:1498.99,dayStartEquity:1500};
+ const blocked={...s,cash:1489.99,dayStartEquity:1500};
  assert.equal(Account.eligibility(blocked,NOW).allowed,false);
  assert.match(Account.eligibility(blocked,NOW).reason,/daily loss limit/);
- assert.equal(Account.stats(blocked,NOW).wallet,1498.99);
+ assert.equal(Account.stats(blocked,NOW).wallet,1489.99);
 });
 test('legacy $1500 demo still runs identical $90 sizing and $0.50 net exits',()=>{
  const s=Account.initial(NOW),openLegacy=Account.step(s,{now:NOW+100,signals:[signal],
@@ -65,10 +65,10 @@ test('legacy $1500 demo still runs identical $90 sizing and $0.50 net exits',()=
  assert.equal(openLegacy.account.ledger.open.stopNet,.75);
  assert.equal(Account.TRADE_USD,90);
 });
-test('small $100 execution quote uses $0.05 target without changing default $90 research settings',()=>{
+test('small $100 execution quote uses $0.50 target without changing default $90 research settings',()=>{
  const book={topic:'orderbook.50.'+S,ts:NOW,type:'snapshot',data:{s:S,u:1,seq:1,
   b:[['99.99','1000']],a:[['100.01','1000']]}};
- const small=Engine.create([S],{notional:100,goalNet:.05});
+ const small=Engine.create([S],{notional:100,goalNet:.50});
  const legacy=Engine.create([S]);
  assert.equal(small.ingest(book,NOW),true);
  assert.equal(legacy.ingest(book,NOW),true);
@@ -93,7 +93,7 @@ test('full small-account book/trade pipeline can actually open one $100 virtual 
  const Signals=require('../static/demo-seconds-signals');
  const Guard=require('../static/demo-seconds-guard');
  const Intel=require('../static/demo-scalp-intelligence');
- const engine=Engine.create([S],{notional:100,goalNet:.05}),intel=Intel.create();
+ const engine=Engine.create([S],{notional:100,goalNet:.50}),intel=Intel.create();
  let wallet=Account.smallInitial(NOW),opens=0;
  for(let i=0;i<=64;i++){
   const t=NOW+i*1000,p=100+(i<=20?.65*i/20:i<=45?.65-.42*(i-20)/25:.23+(i-45)*.014);
