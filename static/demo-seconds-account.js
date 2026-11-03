@@ -4,7 +4,7 @@
 (function(root,factory){const api=factory(typeof module!=='undefined'&&module.exports?require('./seconds-shadow'):root?.OmegaSecondsShadow);if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoSeconds=api})(typeof window!=='undefined'?window:null,function(Shadow){
  if(!Shadow)throw Error('Seconds shadow execution engine unavailable');
  const VERSION=1,INITIAL_USD=1500,TRADE_USD=90,DAILY_LOSS_FRACTION=.02;
- const SMALL_VERSION=2,SMALL_INITIAL_USD=1500,SMALL_TRADE_USD=8,SMALL_TARGET_NET=.05,
+ const SMALL_VERSION=2,SMALL_INITIAL_USD=1500,SMALL_TRADE_USD=100,SMALL_TARGET_NET=.05,
   SMALL_STOP_NET=.08,SMALL_DAILY_LOSS_USD=1;
  const sizing=a=>a?.version===SMALL_VERSION?
   {notional:SMALL_TRADE_USD,targetNet:SMALL_TARGET_NET,stopNet:SMALL_STOP_NET}:
