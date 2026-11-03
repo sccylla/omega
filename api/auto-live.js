@@ -95,5 +95,6 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
   }catch(e){return res.status(e.status||502).json({error:e.status?e.message:'Live trade request failed. Check Bybit orders and positions before attempting again.'})}
  };
 }
-module.exports=factory();
+module.exports=(req,res)=>['preview_close','close_position'].includes(req.body?.action)?require('../lib/live-position-close')(req,res):factoryHandler(req,res);
+const factoryHandler=factory();
 module.exports._test={factory,issueArm,verifyArm,guardAccount};
