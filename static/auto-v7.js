@@ -47,7 +47,7 @@
    if(permitEntries)await manage();
    if(permitEntries&&(!running||document.body.dataset.account==='real'))return;
    if(permitEntries&&A.read().positions.length>=E.MAX_POSITIONS){status('Position limit reached. Existing trades remain managed; no new exposure.','MANAGING');return}
-   if(permitEntries&&E.equity(A.read(),{})<E.MIN_NOTIONAL_USD){status('Demo equity is below the $100 minimum. Reset the demo balance to resume.','BALANCE TOO LOW');return}
+   if(permitEntries&&E.equity(A.read(),{})<E.MIN_NOTIONAL_USD){status('Demo equity is below the $10 position minimum.','BALANCE TOO LOW');return}
    if(run.signal.aborted)throw new DOMException('Scan cancelled','AbortError');
    $('auto-state').textContent='SCANNING';
    progress('Pass '+pass+': loading the full market list…');
@@ -92,14 +92,14 @@
    let entryMessage=null;
    await M.within(signal=>A.transact(a=>{
     if(!running||document.hidden||run.signal.aborted||document.body.dataset.account==='real')return a;
-    if(a.positions.length>=E.MAX_POSITIONS)throw Error('One demo position is already open. Managing its exit.');
+    if(a.positions.length>=E.MAX_POSITIONS)throw Error('All 10 virtual futures position slots are occupied. Waiting for exits.');
     const pick=fresh,symbol=pick.symbol.replace(/USDT$/,'');
     if(a.positions.some(p=>p.symbol===symbol))throw Error('This market already has an open position.');
     if(!Number.isFinite(pick.observedAt)||Date.now()-pick.observedAt>10000||!Number.isFinite(pick.expiresAt)||Date.now()>pick.expiresAt||pick.observedAt>Date.now()+1000||Date.now()-(pick.barTime+300000)>360000)throw Error('Setup expired during scanning.');
     if(window.OmegaPortfolio.concentrated(pick.side,pick.metrics?.benchmarkCorrelation,a.positions))throw Error('Portfolio concentration: correlated exposure or unknown correlation blocks another position.');
-    const targetNet=Math.max(E.MIN_PROFIT_USD,pick.targetNet);
+    const targetNet=Math.max(E.MIN_AUTO_PROFIT_USD,Math.min(1,Number(pick.targetNet)||0));
     const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:E.MIN_NOTIONAL_USD,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null,forwardValidationVersion:'OMEGA_FORWARD_V1',qualityScore:Number.isFinite(pick.quality?.score)?pick.quality.score:null,regime:pick.metrics?.atrPct>1.8?'HIGH VOLATILITY':pick.metrics?.adx>=25&&pick.metrics?.atrPct>=.08?'TREND':'RANGE / TRANSITION'}});
-    entryMessage='Pass '+pass+': opened $100 virtual '+pick.side+' '+symbol+'. Net profit target $'+targetNet.toFixed(2)+' after simulated costs. Protective stop active.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':'');
+    entryMessage='Pass '+pass+': opened $10 virtual '+pick.side+' '+symbol+'. Net profit target $'+targetNet.toFixed(2)+' after simulated costs. Protective stop active.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':'');
     return next;
    },{requireLock:true,signal}),{signal:run.signal,timeoutMs:5000,label:'Demo entry account lock'});
    if(entryMessage)status(entryMessage,'TRADE OPEN');
