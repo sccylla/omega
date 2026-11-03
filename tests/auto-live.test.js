@@ -4,14 +4,14 @@ const {factory,issueArm,verifyArm,guardAccount}=require('../api/auto-live')._tes
 const env={OMEGA_SMALL_LIVE_ORDERS_ENABLED:'true',OMEGA_BROWSER_AUTOLIVE_ENABLED:'true',OMEGA_SESSION_SECRET:'q'.repeat(64)};
 const now=1800000005000,bar=Math.floor((now-300000)/300000)*300000;
 const auth={getCookie:r=>r.headers.cookie==='owner'?'owner':null,isAuthed:r=>r.headers.cookie==='owner',assertOrigin:r=>{if(r.headers.origin!=='https://example.test'||r.headers['x-omega-request']!=='1')throw Object.assign(Error('Origin rejected'),{status:403})}};
-const clean=()=>({equity:88,available:88,pnlToday:0,positions:[],pending:[]});
+const clean=()=>({equity:800,available:800,pnlToday:0,positions:[],pending:[]});
 const plan=()=>({symbol:'XRPUSDT',side:'BUY',eligible:true,executionPolicy:'LIVE_STRICT',barTime:bar,expiresAt:now+50000,price:1.01,targetNet:0.12,reason:'All required checks passed'});
 function fake(){
  const writes=[];let open=false,pending=false,existing=null;
  const broker={
   ready:()=>true,
   snapshot:async()=>({...clean(),positions:open?[{symbol:'XRPUSDT'}]:[],pending:pending?[{symbol:'XRPUSDT'}]:[]}),
-  ticket:async(symbol,side,plan,options)=>{assert.deepEqual(options,{notionalUsd:15,maxNotionalUsd:16});return{symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'14.85',notional:15.0007,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}},
+  ticket:async(symbol,side,plan,options)=>{assert.deepEqual(options,{notionalUsd:100,maxNotionalUsd:102});return{symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'100',notional:101,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}},
   order:async()=>existing,
   leverage:async()=>{writes.push('leverage')},
   enter:async(ticket,link)=>{writes.push({ticket,link});return{orderId:'id-1'}}
@@ -23,7 +23,7 @@ async function call(h,method,body,headers={}){const req={method,body,headers:{co
 test('real autopilot arming is explicit, one hour, authenticated and bound to login cookie',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
  assert.equal((await call(h,'POST',{action:'arm',confirm:'start'})).code,400);
- const armed=await call(h,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'});assert.equal(armed.code,200);assert.equal(armed.data.armed,true);
+ const armed=await call(h,'POST',{action:'arm',confirm:'START REAL $100 AUTOPILOT'});assert.equal(armed.code,200);assert.equal(armed.data.armed,true);
  assert.equal(f.writes.length,0);
  const token=armed.data.token;
  assert.ok(verifyArm({headers:{cookie:'owner'}},token,env,auth,now));
@@ -32,13 +32,13 @@ test('real autopilot arming is explicit, one hour, authenticated and bound to lo
 });
 test('fresh strict live entry has exchange TP/SL, requires arm and rejects duplicate positions',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
- const armed=(await call(h,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'})).data;
+ const armed=(await call(h,'POST',{action:'arm',confirm:'START REAL $100 AUTOPILOT'})).data;
  assert.equal((await call(h,'POST',{action:'enter',symbol:'XRPUSDT'})).code,403);
  assert.equal(f.writes.length,0);
  const accepted=await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token:armed.token});
  assert.equal(accepted.code,202);assert.equal(accepted.data.submitted,true);
  assert.deepEqual(f.writes.map(x=>typeof x==='string'?x:'enter'),['leverage','enter']);
- assert.ok(f.writes[1].ticket.notional<=16);
+ assert.ok(f.writes[1].ticket.notional<=102);
  assert.ok(f.writes[1].ticket.stopLoss&&f.writes[1].ticket.takeProfit);
  f.setOpen(true);
  assert.equal((await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token:armed.token})).code,409);
@@ -75,19 +75,19 @@ test('status is observational, never arms or trades',async()=>{
  const r=await call(h,'GET');assert.equal(r.code,200);assert.equal(r.data.mode,'BROWSER_CONTROLLED_LIVE');assert.equal(f.writes.length,0);
 });
 
-test('small live autopilot can arm with $88 but not $74 equity or <$15 available',async()=>{
+test('$100 live autopilot can arm with $800 equity, not with $88 equity or <$100 available',async()=>{
  const f=fake();
  const handler=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
- const result=await call(handler,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'});
+ const result=await call(handler,'POST',{action:'arm',confirm:'START REAL $100 AUTOPILOT'});
  assert.equal(result.code,200);
  assert.equal(f.writes.length,0);
- for(const snapshot of [{...clean(),equity:74},{...clean(),available:14},{...clean(),pnlToday:-1.01}])
+ for(const snapshot of [{...clean(),equity:88},{...clean(),available:99},{...clean(),pnlToday:-1.01}])
   assert.throws(()=>guardAccount(snapshot),/equity|margin|loss/i);
 });
 test('autopilot cannot be armed by legacy phrase or without the small live server switch',async()=>{
  const f=fake();
  const noSwitch=factory({env:{...env,OMEGA_SMALL_LIVE_ORDERS_ENABLED:'false'},broker:f.broker,authentication:auth,clock:()=>now});
- assert.equal((await call(noSwitch,'POST',{action:'arm',confirm:'START REAL $15 AUTOPILOT'})).code,503);
+ assert.equal((await call(noSwitch,'POST',{action:'arm',confirm:'START REAL $100 AUTOPILOT'})).code,503);
  const valid=factory({env,broker:f.broker,authentication:auth,clock:()=>now});
  assert.equal((await call(valid,'POST',{action:'arm',confirm:'START REAL AUTOPILOT'})).code,400);
  assert.equal(f.writes.length,0);
@@ -98,12 +98,12 @@ test('browser autopilot UI and research engine do not reference the old $450/$90
  const ui=fs.readFileSync(path.join(root,'static/live-auto.js'),'utf8');
  const api=fs.readFileSync(path.join(root,'api/auto-live.js'),'utf8');
  const decision=fs.readFileSync(path.join(root,'api/decision.js'),'utf8');
- assert.match(html,/START REAL \$15 AUTOPILOT/);
+ assert.match(html,/START REAL \$100 AUTOPILOT/);
  assert.match(ui,/mode:'live_small'/);
- assert.match(ui,/account.equity<75\|\|account.available<15/);
+ assert.match(ui,/account.equity<500\|\|account.available<100/);
  assert.match(api,/notionalUsd:AUTO_TRADE_USD,maxNotionalUsd:AUTO_MAX_TRADE_USD/);
- assert.match(api,/AUTO_MIN_EQUITY_USD=75/);
- assert.match(decision,/mode==='live_small'\?15:90/);
+ assert.match(api,/AUTO_MIN_EQUITY_USD=500/);
+ assert.match(decision,/mode==='live_small'\?100:90/);
  assert.doesNotMatch(api,/\$90 minimum position requires/);
  assert.doesNotMatch(ui,/account.equity<450/);
 });
