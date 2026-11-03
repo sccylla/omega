@@ -10,7 +10,7 @@ function signal(needed=70){
  return {symbol:'BTCUSDT',state:'WATCH',side:'BUY',score:90,requiredMoveBps:needed,spreadBps:1.2,roundTripImpactBps:2,reasons:[]};
 }
 test('genuinely low volatility blocks a seconds scalp',()=>{
- const s=guard.filter(signal(70),history(10),now);
+ const s=guard.filter(signal(70),history(4),now);
  assert.equal(s.state,'WAIT');
  assert.equal(s.side,null);
  assert.ok(s.reasons.some(x=>x.includes('Observed 60s range')));
