@@ -6,8 +6,7 @@ const auth=require('../lib/bybit-demo');
 const {LiveBroker}=require('../lib/live-broker');
 const {collectEvidence}=require('../lib/market-evidence');
 const {decide}=require('../lib/advanced-decision');
-const {idForBar}=require('./manual-live')._test;
-const {risk}=require('../lib/small-live')._test;
+const portfolio=require('../lib/live-portfolio');
 const ScalpEvidence=require('../lib/scalp-evidence');
 const AUTO_TRADE_USD=15,AUTO_MAX_TRADE_USD=16,AUTO_MIN_EQUITY_USD=75,AUTO_NET_GOAL_USD=.05;
 const {MAX_EXPOSURE_FRACTION}=require('../lib/live-policy');
@@ -32,11 +31,9 @@ function verifyArm(req,token,env,authenticator,now=Date.now()){
  if(value.version!==3||!['futures','scalper'].includes(value.purpose)||value.tradeUsd!==AUTO_TRADE_USD||!Number.isSafeInteger(value.issuedAt)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=now||value.issuedAt>now||value.expiresAt-value.issuedAt!==MAX_SESSION_MS||value.session!==hmac(cookie,env).slice(0,32))throw error(403,'Trading authorization expired or belongs to another session');
  return value;
 }
-function guardAccount(snapshot){
- if(!snapshot||!Number.isFinite(snapshot.equity)||!Number.isFinite(snapshot.available)||!Number.isFinite(snapshot.pnlToday)||!Array.isArray(snapshot.positions)||!Array.isArray(snapshot.pending))throw error(409,'Broker account state is incomplete');
- if(snapshot.positions.length||snapshot.pending.length)throw error(409,'A live position or pending order is already present. Wait for its exchange-managed exit.');
- if(snapshot.equity<AUTO_MIN_EQUITY_USD||snapshot.available<AUTO_TRADE_USD||snapshot.equity*MAX_EXPOSURE_FRACTION<AUTO_TRADE_USD)throw error(409,'A $15 live position requires at least $75 equity and $15 available under the 20% exposure rule');
- if(snapshot.pnlToday<=-Math.min(1,snapshot.equity*.02))throw error(409,'Daily loss threshold reached; entries suspended');
+function guardAccount(snapshot,options={}){
+ try{return portfolio.validate(snapshot,options)}
+ catch(e){throw error(409,e.message)}
 }
 function factory({env=process.env,broker=new LiveBroker({env}),analyze=async symbol=>decide(await collectEvidence(symbol,{fresh:true}),{mode:'live_small',now:Date.now(),notional:AUTO_TRADE_USD}),scalpValidate=ScalpEvidence.validate,authentication=auth,clock=()=>Date.now()}={}){
  const enabled=()=>env.OMEGA_SMALL_LIVE_ORDERS_ENABLED==='true'&&env.OMEGA_BROWSER_AUTOLIVE_ENABLED==='true';
@@ -46,7 +43,7 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
   if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'GET or POST required'});
   if(!authentication.isAuthed(req))return res.status(401).json({error:'Sign in to start real-money autopilot'});
   try{
-   if(req.method==='GET')return res.status(200).json({mode:'BROWSER_CONTROLLED_LIVE',configured:broker.ready(),enabled:enabled(),maxPositionCount:1,minimumTradeUsd:AUTO_TRADE_USD,tradeBudget:AUTO_TRADE_USD,maxTradeUsd:AUTO_MAX_TRADE_USD,minimumEquityUsd:AUTO_MIN_EQUITY_USD,estimatedNetProfitTargetUsd:AUTO_NET_GOAL_USD,exchangeManagedExits:true,expiresInMinutes:60,runsOnlyInVisibleBrowser:true});
+   if(req.method==='GET')return res.status(200).json({mode:'BROWSER_CONTROLLED_LIVE',configured:broker.ready(),enabled:enabled(),maxPositionCount:portfolio.MAX_POSITIONS,portfolioExposureLimitPct:20,minimumTradeUsd:AUTO_TRADE_USD,tradeBudget:AUTO_TRADE_USD,maxTradeUsd:AUTO_MAX_TRADE_USD,minimumEquityUsd:AUTO_MIN_EQUITY_USD,estimatedNetProfitTargetUsd:AUTO_NET_GOAL_USD,exchangeManagedExits:true,expiresInMinutes:60,runsOnlyInVisibleBrowser:true});
    authentication.assertOrigin(req);
    if(!req.body||JSON.stringify(req.body).length>2500)throw error(400,'Invalid trading request');
    if(!enabled()||!broker.ready())throw error(503,'Browser-controlled live trading is not enabled or credentials are missing');
@@ -64,7 +61,7 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
    const symbol=String(req.body.symbol||'').toUpperCase();
    if(!SYMBOL.test(symbol))throw error(400,'Invalid Bybit USDT perpetual pair');
    const snapshot=await broker.snapshot();
-   guardAccount(snapshot);
+   guardAccount(snapshot,{symbol});
    // A browser scalp WATCH is never sufficient; independently request public
    // Bybit recent trades and 50-level depth immediately before any entry.
    const micro=scalper?await scalpValidate(broker,symbol,req.body.side,clock()):null;
@@ -77,12 +74,12 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
    const ticket=await broker.ticket(symbol,plan.side==='BUY'?'Buy':'Sell',profitPlan,{notionalUsd:AUTO_TRADE_USD,maxNotionalUsd:AUTO_MAX_TRADE_USD});
    if(!Number.isFinite(ticket.estimatedTakeProfitNetUsd)||ticket.estimatedTakeProfitNetUsd<AUTO_NET_GOAL_USD)throw error(409,'Exchange ticket does not meet the $0.05 estimated net take-profit target');
    const recent=await broker.snapshot();
-   guardAccount(recent);const limits=risk(recent,ticket);
+   const limits=guardAccount(recent,{symbol,ticket});
    if(clock()>plan.expiresAt)throw error(409,'Signal expired during broker price and risk checks');
    // Futures uses one trade per 5m signal; scalping uses a separate 30s bucket.
    // In either case, account snapshot and orderLinkId reconciliation still apply.
-   const link=scalper?'oms'+crypto.createHmac('sha256',env.OMEGA_SESSION_SECRET)
-    .update('scalp:'+symbol+':'+plan.side+':'+Math.floor(clock()/30000)).digest('hex').slice(0,29):idForBar(plan.barTime,env);
+   const link=(scalper?'oms':'omf')+crypto.createHmac('sha256',env.OMEGA_SESSION_SECRET)
+    .update((scalper?'scalp:':'futures:')+symbol+':'+plan.side+':'+(scalper?Math.floor(clock()/30000):plan.barTime)).digest('hex').slice(0,29);
    // Explicit replay check; never blindly retry an ambiguous submission.
    const prior=await broker.order(symbol,link);
    if(prior)throw error(409,'This five-minute signal has already been submitted to Bybit');
