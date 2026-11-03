@@ -92,3 +92,11 @@ body{background:#08111a}
 .open-trade-close-btn:hover:not(:disabled){background:#893747}
 .open-trade-close-btn:disabled{opacity:.5;cursor:not-allowed}
 .open-trades-table{min-width:925px}
+
+/* Always-visible explanation when the Scalper is scanning but no trade qualifies. */
+#demo-scalper-readiness{
+ display:block!important;margin:12px 0!important;padding:12px 15px;
+ border-left:3px solid #82dec8;border-radius:8px;
+ background:#102e35;color:#c1e9e2;font-size:12px;line-height:1.65;
+ overflow-wrap:anywhere
+}
