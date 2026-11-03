@@ -25,8 +25,17 @@ async function scan(trading){
    const account=await M.within(signal=>request('/api/live?action=bybit',null,signal),{signal:controller.signal,timeoutMs:12000,label:'Bybit account'});
    $('live-auto-positions').textContent=account.openPositions??'—';
    if(!Number.isFinite(account.equity)||!Number.isFinite(account.available))throw Error('Bybit account balance unavailable');
-   if(account.openPositions>0){status('Existing Bybit position open. Waiting for its exchange-side TP/SL before scanning again.','MANAGING');return}
-   if(account.equity<75||account.available<15){status('A $15 live trade at no more than 20% account exposure needs at least $75 equity and $15 available.','BALANCE LOW');return}
+   if(account.openPositions>=10){status('All 10 real-money position slots are occupied. Waiting for exchange-managed exits.','MANAGING');return}
+   if(account.equity<75||account.available<15){
+    status('Next $15 entry requires at least $75 equity and $15 available. Existing protected trades can continue.','BALANCE LOW');return;
+   }
+   const positions=Array.isArray(account.positions)?account.positions:[];
+   if(positions.length){
+    const existing=positions.reduce((sum,p)=>sum+Math.max(Number(p.markPrice||0),Number(p.avgPrice||0))*Number(p.size||0),0);
+    if(!Number.isFinite(existing)||existing+15>account.equity*.2+1e-8){
+     status('Portfolio total 20% exposure cap reached. '+positions.length+'/10 positions open; waiting for exits or more equity.','RISK WAIT');return;
+    }
+   }
   }
   status('Scanning Bybit futures…','SCANNING');
   const universe=await M.within(signal=>request('/api/scanner?market=futures&page=1&size=15',null,signal),{signal:controller.signal,timeoutMs:15000,label:'Market universe'});
@@ -53,7 +62,7 @@ async function scan(trading){
   if(!order.submitted)throw Error('Bybit did not acknowledge an order');
   lastBar=selected.barTime;
   status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Estimated net TP goal $0.05+ at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
-  progress('One $15 real entry submitted. After Bybit reports no open position or pending order, the next qualified scan may request another trade.');
+  progress('One $15 real entry requested. Broker portfolio may hold up to 10 separate protected positions, but total 20% exposure and $1 modeled stop-risk caps still apply.');
  }catch(e){
   if(canceled())return;
   if(e.status===409){status('No eligible live entry: '+e.message,'WAITING FOR SETUP');return}
