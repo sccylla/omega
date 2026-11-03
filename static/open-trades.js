@@ -197,6 +197,7 @@ async function refreshReal(){
     const message='FINAL REAL-MONEY CONFIRMATION: CLOSE '+preview.size+' '+preview.symbol+
      ' ('+direction(preview.side)+') at MARKET price using reduce-only order? A loss may be realized. No guaranteed execution price.';
     if(!window.confirm(message))return;
+    window.dispatchEvent(new Event('omega:manual-position-close'));
     const result=await closeRequest({action:'close_position',symbol:p.symbol,
      previewToken:preview.previewToken,confirm:'CLOSE REAL '+p.symbol});
     status.textContent=result.message||'Bybit received the close request. Verify the fill.';
