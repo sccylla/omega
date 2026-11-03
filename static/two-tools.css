@@ -85,3 +85,10 @@ body{background:#08111a}
  .open-trades-head button{width:100%}
  .open-trades-table th,.open-trades-table td{padding:11px 10px}
 }
+
+/* Per-position voluntary close: visible in both virtual and funded open-trade tables */
+.open-trades-table th:last-child,.open-trades-table td:last-child{text-align:right;position:sticky;right:0;background:#162e39;box-shadow:-6px 0 16px rgba(0,0,0,.12)}
+.open-trade-close-btn{background:#5c2530;color:#fff;border:1px solid #dc8191;border-radius:9px;padding:8px 14px;font-weight:700;font-size:12px;cursor:pointer;min-width:76px}
+.open-trade-close-btn:hover:not(:disabled){background:#893747}
+.open-trade-close-btn:disabled{opacity:.5;cursor:not-allowed}
+.open-trades-table{min-width:925px}
