@@ -19,10 +19,10 @@ function fake(){
  const orders=[];
  const broker={
   ready:()=>true,
-  snapshot:async()=>({equity:88,available:88,pnlToday:0,positions:[],pending:[]}),
+  snapshot:async()=>({equity:800,available:800,pnlToday:0,positions:[],pending:[]}),
   ticket:async(symbol,side,plan,options)=>{
-   assert.deepEqual(options,{notionalUsd:15,maxNotionalUsd:16});
-   return{symbol,side,qty:'0.15',price:100.01,notional:15,stopLoss:'99.71',takeProfit:'100.7',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:.06};
+   assert.deepEqual(options,{notionalUsd:100,maxNotionalUsd:102});
+   return{symbol,side,qty:'1',price:100.01,notional:100.01,stopLoss:'99.71',takeProfit:'100.7',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:.06};
   },
   order:async()=>null,leverage:async()=>{},
   enter:async(ticket,link)=>{orders.push({ticket,link});return{orderId:'bybit-ack'}},
@@ -43,7 +43,7 @@ test('server independently confirms recent trend, bid/ask depth, aggressive flow
 test('separate real scalp authorization never places a trade until a fresh eligible server recheck',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,authentication:auth,clock:()=>NOW,
   analyze:async()=>f.plan,scalpValidate:async()=>({side:'Buy',eligible:true})});
- const armed=await call(h,{action:'arm',confirm:'START REAL $15 SCALPER'});
+ const armed=await call(h,{action:'arm',confirm:'START REAL $100 SCALPER'});
  assert.equal(armed.code,200);assert.equal(armed.data.purpose,'scalper');assert.equal(f.orders.length,0);
  const denied=await call(h,{action:'enter_scalp',symbol:'XRPUSDT',side:'Buy'});
  assert.equal(denied.code,403);
@@ -51,15 +51,15 @@ test('separate real scalp authorization never places a trade until a fresh eligi
  assert.equal(accepted.code,202,JSON.stringify(accepted.data));
  assert.equal(accepted.data.strategy,'SCALPER');
  assert.equal(f.orders.length,1);
- assert.equal(f.orders[0].ticket.notional,15);
+ assert.equal(f.orders[0].ticket.notional,100.01);
  assert.equal(f.orders[0].ticket.stopLoss,'99.71');
  assert.ok(f.orders[0].link.startsWith('oms'));
 });
 test('scalp token cannot authorize a futures trade; futures token cannot authorize a scalp',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,authentication:auth,clock:()=>NOW,
   analyze:async()=>f.plan,scalpValidate:async()=>({side:'Buy'})});
- const scalp=(await call(h,{action:'arm',confirm:'START REAL $15 SCALPER'})).data.token;
- const future=(await call(h,{action:'arm',confirm:'START REAL $15 AUTOPILOT'})).data.token;
+ const scalp=(await call(h,{action:'arm',confirm:'START REAL $100 SCALPER'})).data.token;
+ const future=(await call(h,{action:'arm',confirm:'START REAL $100 AUTOPILOT'})).data.token;
  assert.equal((await call(h,{action:'enter',symbol:'XRPUSDT',token:scalp})).code,403);
  assert.equal((await call(h,{action:'enter_scalp',symbol:'XRPUSDT',side:'Buy',token:future})).code,403);
  assert.equal(f.orders.length,0);
@@ -67,7 +67,7 @@ test('scalp token cannot authorize a futures trade; futures token cannot authori
 test('server rejects scalp when public flow or mandatory strict futures checks fail',async()=>{
  const f=fake(),base={env,broker:f.broker,authentication:auth,clock:()=>NOW,analyze:async()=>f.plan};
  const veto=factory({...base,scalpValidate:async()=>{throw Error('No confirming order flow')}});
- const tok=(await call(veto,{action:'arm',confirm:'START REAL $15 SCALPER'})).data.token;
+ const tok=(await call(veto,{action:'arm',confirm:'START REAL $100 SCALPER'})).data.token;
  assert.notEqual((await call(veto,{action:'enter_scalp',symbol:'XRPUSDT',side:'Buy',token:tok})).code,202);
  const bad=factory({...base,scalpValidate:async()=>({side:'Buy'}),analyze:async()=>({...f.plan,eligible:false})});
  assert.equal((await call(bad,{action:'enter_scalp',symbol:'XRPUSDT',side:'Buy',token:tok})).code,409);

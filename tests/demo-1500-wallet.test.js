@@ -15,7 +15,7 @@ test('new Demo Scalper and Futures wallets each start with $1500 virtual funds',
  assert.equal(E.INITIAL,1500);
  assert.equal(Demo.SMALL_INITIAL_USD,1500);
  assert.equal(Demo.INITIAL_USD,1500);
- assert.equal(Demo.SMALL_TRADE_USD,8);
+ assert.equal(Demo.SMALL_TRADE_USD,100);
 });
 test('old Futures account retains existing closed trades and open positions, and migrates once',()=>{
  const old={...E.initial(),demoFundingVersion:undefined,starting:100,cash:117.25,dayStartEquity:110};

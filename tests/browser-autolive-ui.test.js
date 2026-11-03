@@ -13,9 +13,9 @@ test('Automatic live entry never arms on reload, when tab is hidden, or in demo 
  assert.ok(!src.includes('localStorage.setItem'));
 });
 
-test('new $15 browser real-autopilot confirmation is shown, $90 legacy launch is not',()=>{
- assert.match(html,/START REAL \$15 AUTOPILOT/);
- assert.match(src,/START REAL \$15 AUTOPILOT/);
- assert.ok(src.includes('account.equity<75||account.available<15'));
+test('new $100 browser real-autopilot confirmation is shown, $90 legacy launch is not',()=>{
+ assert.match(html,/START REAL \$100 AUTOPILOT/);
+ assert.match(src,/START REAL \$100 AUTOPILOT/);
+ assert.ok(src.includes('account.equity<500||account.available<100'));
  assert.ok(!src.includes('account.equity<450'));
 });

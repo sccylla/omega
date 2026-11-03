@@ -7,11 +7,11 @@
  const start=$('seconds-trade-toggle'),input=$('seconds-confirm'),note=$('seconds-strict-status');
  if(!start||!input||!note)return;
  let armed=false,token=null,expires=0,latest=null,busy=false,lastAttempt=0,lastOrder=0;
- const phrase='START REAL $15 SCALPER';
+ const phrase='START REAL $100 SCALPER';
  const waiting=s=>{note.textContent=s};
  function pause(message){
   armed=false;token=null;expires=0;latest=null;
-  start.textContent='Start Real Scalper ($15)';
+  start.textContent='Start Real Scalper ($100)';
   if(message)waiting(message);
  }
  async function request(body){
@@ -29,7 +29,7 @@
   if(document.hidden||document.body.dataset.account!=='real')return waiting('Open Real Account in a visible browser tab.');
   if(input.value!==phrase)return waiting('Type '+phrase+' exactly before starting real scalping.');
   if(!navigator.locks?.request)return waiting('Current Chrome over HTTPS is required for single-tab real-order locking.');
-  start.disabled=true;waiting('Verifying your funded Bybit balance and $15 risk limits. No order yet.');
+  start.disabled=true;waiting('Verifying your funded Bybit balance and $100 risk limits. No order yet.');
   try{
    const result=await request({action:'arm',confirm:phrase});
    if(result.armed!==true||result.purpose!=='scalper'||!result.token)throw Error('Server did not authorize real scalping');
@@ -73,10 +73,11 @@
  }
  start.addEventListener('click',toggle);
  window.addEventListener('omega:scalp-watch',e=>{latest=e.detail||null});
- window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='futures'&&armed)pause('Paused Scalper because Futures Trader was armed. Only one real strategy can send entries.')});
+ window.addEventListener('omega:manual-position-close',()=>{if(armed)pause('Paused for manual Bybit close. Restart Scalper explicitly.')});
+window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='futures'&&armed)pause('Paused Scalper because Futures Trader was armed. Only one real strategy can send entries.')});
  window.addEventListener('omega:account-mode',()=>{if(armed&&document.body.dataset.account!=='real')pause('Paused after leaving Real Account. Exchange orders may remain active.')});
  document.addEventListener('visibilitychange',()=>{if(armed&&document.hidden)pause('Scalper paused when tab became hidden. Exchange TP/SL remain active.')});
  window.addEventListener('beforeunload',()=>{armed=false;token=null});
- start.textContent='Start Real Scalper ($15)';
+ start.textContent='Start Real Scalper ($100)';
  setInterval(cycle,2500);
 })();

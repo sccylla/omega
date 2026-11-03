@@ -19,6 +19,24 @@
   try{localStorage.setItem(walletKey,JSON.stringify(wallet));return true}
   catch{halt('Demo wallet storage unavailable. Virtual trading paused without claiming a fill.');return false}
  }
+ // Per-trade close is deliberate, applies only to a matched virtual position,
+ // and refuses stale quotes (a close must never manufacture a profit).
+ window.OmegaDemoScalperClose={
+  async close(symbol){
+   if(document.body.dataset.account!=='demo'||document.hidden)throw Error('Open the visible Demo tab');
+   if(!/^[A-Z0-9]{2,24}USDT$/.test(symbol))throw Error('Invalid virtual market');
+   const q=latestQuotes[symbol];
+   if(!q||!Number.isFinite(q.observedAt)||Date.now()-q.observedAt>2300)
+    throw Error('Fresh market price not available; scalp remains open');
+   const before=H.openList(wallet.ledger);
+   if(!before.some(p=>p.symbol===symbol))throw Error('The selected Demo scalp is no longer open');
+   wallet=A.closeOne(wallet,symbol,q,Date.now());
+   if(!persist())throw Error('Unable to persist virtual close; inspect saved wallet');
+   setStatus('Manually closed virtual scalp '+symbol+' using fresh executable price. Other positions remain open.');
+   renderAccount();
+   return A.stats(wallet,Date.now(),latestQuotes);
+  }
+ };
  function renderAccount(){
   const s=A.stats(wallet,Date.now(),latestQuotes),a=I.audit(wallet.ledger.closed);
   const core=a.trailingWinRatePct===null?'—':a.trailingWinRatePct.toFixed(1)+'%';

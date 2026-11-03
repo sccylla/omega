@@ -4,8 +4,8 @@
 (function(root,factory){const api=factory(typeof module!=='undefined'&&module.exports?require('./seconds-shadow'):root?.OmegaSecondsShadow);if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoSeconds=api})(typeof window!=='undefined'?window:null,function(Shadow){
  if(!Shadow)throw Error('Seconds shadow execution engine unavailable');
  const VERSION=1,INITIAL_USD=1500,TRADE_USD=90,DAILY_LOSS_FRACTION=.02;
- const SMALL_VERSION=2,SMALL_INITIAL_USD=1500,SMALL_TRADE_USD=8,SMALL_TARGET_NET=.05,
-  SMALL_STOP_NET=.08,SMALL_DAILY_LOSS_USD=1;
+ const SMALL_VERSION=2,SMALL_INITIAL_USD=1500,SMALL_TRADE_USD=100,SMALL_TARGET_NET=.50,
+  SMALL_STOP_NET=.75,SMALL_DAILY_LOSS_USD=10;
  const sizing=a=>a?.version===SMALL_VERSION?
   {notional:SMALL_TRADE_USD,targetNet:SMALL_TARGET_NET,stopNet:SMALL_STOP_NET}:
   {notional:TRADE_USD,targetNet:.50,stopNet:.75};
@@ -71,6 +71,11 @@
    wins:account.wins+trades.filter(t=>t.net>0).length};
   return {account,events:result.events,risk:eligibility(account,now)};
  }
+ function closeOne(raw,symbol,quote,now=Date.now()){
+  const account=restore(raw,now),closed=Shadow.closeOne(account.ledger,symbol,quote,now);
+  return {...account,ledger:closed.state,cash:round(account.cash+closed.trade.net,6),
+   closedTrades:account.closedTrades+1,wins:account.wins+Number(closed.trade.net>0)};
+ }
  function interrupt(raw,now=Date.now()){
   const account=restore(raw,now);
   return {...account,ledger:account.version===SMALL_VERSION?Shadow.interruptMany(account.ledger):Shadow.interrupt(account.ledger)};
@@ -108,5 +113,5 @@
  }
  return {VERSION,INITIAL_USD,TRADE_USD,DAILY_LOSS_FRACTION,
   SMALL_VERSION,SMALL_INITIAL_USD,SMALL_TRADE_USD,SMALL_TARGET_NET,SMALL_STOP_NET,SMALL_DAILY_LOSS_USD,
-  initial,smallInitial,restore,eligibility,step,interrupt,stats};
+  initial,smallInitial,restore,eligibility,step,closeOne,interrupt,stats};
 });

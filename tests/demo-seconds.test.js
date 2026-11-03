@@ -38,7 +38,7 @@ test('seconds Demo virtual profits credit its wallet and losses debit it, not th
  assert.equal(losing.account.wins,0);
  assert.equal(losing.account.closedTrades,1);
  const paper=require('../static/paper-engine');
- assert.equal(paper.MIN_NOTIONAL_USD,9.5);
+ assert.equal(paper.MIN_NOTIONAL_USD,100);
  assert.equal(paper.initial().cash,1500);
 });
 test('two adverse seconds scalp outcomes trigger the separate 2 percent Demo daily loss stop',()=>{

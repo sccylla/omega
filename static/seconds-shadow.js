@@ -100,6 +100,27 @@
   s.lastClose=lastClose;
   return {state:s,events};
  }
+ function closeOne(raw,symbol,quote,now=Date.now()){
+  const s=restore(raw);
+  if(typeof symbol!=='string'||!/^[A-Z0-9]{2,24}USDT$/.test(symbol))throw Error('Invalid Demo scalp symbol');
+  const positions=openList(s);
+  const matches=positions.filter(p=>p.symbol===symbol);
+  if(matches.length!==1)throw Error('Demo Scalper position is no longer open; refresh trades');
+  const p=matches[0];
+  if(!quote||!Number.isFinite(quote.observedAt)||quote.observedAt>now+1000||now-quote.observedAt>2300||
+   !Number.isFinite(quote.bidVwap)||!Number.isFinite(quote.askVwap)||
+   quote.bidVwap<=0||quote.askVwap<quote.bidVwap||now<=p.openedAt)
+   throw Error('No fresh executable market quote. The virtual position was NOT closed.');
+  const result=breakdown(p,quote),exit=p.side==='BUY'?quote.bidVwap:quote.askVwap;
+  const trade={symbol:p.symbol,side:p.side,notional:p.notional,openedAt:p.openedAt,
+   closedAt:now,entry:p.entry,exit,net:round(result.net),gross:round(result.gross),
+   fees:round(result.fees),slippage:round(result.slippage),reason:'Manually closed virtual scalp',
+   quality:p.quality,requiredMoveBps:p.requiredMoveBps,entryEvidence:p.entryEvidence||null};
+  const others=positions.filter(item=>item!==p);
+  s.open=others[0]||null;s.moreOpen=others.slice(1);
+  s.closed=[...s.closed,trade].slice(-MAX_RECORDS);s.lastClose=now;
+  return {state:s,trade};
+ }
  function interruptMany(raw){
   const s=restore(raw),count=openList(s).length;
   if(count){s.open=null;s.moreOpen=[];s.incomplete+=count;s.lastClose=Date.now()}
@@ -118,5 +139,5 @@
    last:completed.at(-1)||null,validated:false,reason:'Simulated top-50 book VWAP, assumed fees/slippage and a live browser connection. Not independently audited real fills.'};
  }
  function interrupt(raw){const s=restore(raw);if(s.open){s.open=null;s.incomplete++;s.lastClose=Date.now()}return s}
- return {init,restore,step,stepMany,openList,interruptMany,stats,interrupt,pnl};
+ return {init,restore,step,stepMany,closeOne,openList,interruptMany,stats,interrupt,pnl};
 });
