@@ -86,6 +86,7 @@ button.addEventListener('click',toggle);
 $('live-auto-scan-only').addEventListener('click',()=>scan(false));
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&running)pause('Real autopilot paused when tab became hidden. Exchange stop/target orders remain active.')});
 window.addEventListener('omega:account-mode',()=>{if(running)pause('Real autopilot paused after account change.')});
+window.addEventListener('omega:manual-position-close',()=>{if(running)pause('Paused for manual Bybit close. Restart Futures Trader explicitly.')});
 window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='scalper'&&running)pause('Futures Trader paused because Real Scalper was armed.')});
 window.addEventListener('beforeunload',()=>{running=false;token=null});
 controls();
