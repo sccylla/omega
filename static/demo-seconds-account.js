@@ -71,6 +71,11 @@
    wins:account.wins+trades.filter(t=>t.net>0).length};
   return {account,events:result.events,risk:eligibility(account,now)};
  }
+ function closeOne(raw,symbol,quote,now=Date.now()){
+  const account=restore(raw,now),closed=Shadow.closeOne(account.ledger,symbol,quote,now);
+  return {...account,ledger:closed.state,cash:round(account.cash+closed.trade.net,6),
+   closedTrades:account.closedTrades+1,wins:account.wins+Number(closed.trade.net>0)};
+ }
  function interrupt(raw,now=Date.now()){
   const account=restore(raw,now);
   return {...account,ledger:account.version===SMALL_VERSION?Shadow.interruptMany(account.ledger):Shadow.interrupt(account.ledger)};
@@ -108,5 +113,5 @@
  }
  return {VERSION,INITIAL_USD,TRADE_USD,DAILY_LOSS_FRACTION,
   SMALL_VERSION,SMALL_INITIAL_USD,SMALL_TRADE_USD,SMALL_TARGET_NET,SMALL_STOP_NET,SMALL_DAILY_LOSS_USD,
-  initial,smallInitial,restore,eligibility,step,interrupt,stats};
+  initial,smallInitial,restore,eligibility,step,closeOne,interrupt,stats};
 });
