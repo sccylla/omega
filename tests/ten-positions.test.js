@@ -33,17 +33,17 @@ test('Demo scalper closes only observed qualifying exits, never fabricates fills
  assert.equal(interrupted.ledger.incomplete,10);
  assert.equal(interrupted.closedTrades,0);
 });
-test('Demo Futures Trader permits ten fully funded $10 auto positions but not eleven',()=>{
+test('Demo Futures Trader permits ten fully funded $9.50 auto positions but not eleven',()=>{
  let a=Paper.initial();
  assert.equal(Paper.MAX_POSITIONS,10);
  for(let i=0;i<10;i++){
   const symbol='COIN'+i;
-  a=Paper.open(a,{[symbol]:1},{symbol,side:'BUY',notional:10,auto:true,targetNet:.05,stopPct:1.5});
+  a=Paper.open(a,{[symbol]:1},{symbol,side:'BUY',notional:9.5,auto:true,targetNet:.05,stopPct:1.5});
  }
  assert.equal(a.positions.length,10);
- assert.equal(a.positions.reduce((s,p)=>s+p.notional,0),100);
+ assert.equal(a.positions.reduce((s,p)=>s+p.notional,0),95);
  assert.throws(()=>Paper.open(a,{COIN10:1},{symbol:'COIN10',side:'BUY',notional:10,auto:true}),/10 demo position slots/);
- assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:9,auto:true}),/at least \$10/);
+ assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:9.49,auto:true}),/at least \$9.5/);
  assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:10}),/at least \$100/);
 });
 const protectedPos=(symbol,side='Buy')=>({symbol,side,size:'0.15',avgPrice:'100',markPrice:'100',
