@@ -1,10 +1,10 @@
 'use strict';
-// Independent demo-only $100 seconds-scalping wallet. Existing OMEGA Demo
+// Independent demo-only $1,500 seconds-scalping wallet. Existing OMEGA Demo
 // cloud/local ledger and all funded exchange orders are deliberately untouched.
 (function(root,factory){const api=factory(typeof module!=='undefined'&&module.exports?require('./seconds-shadow'):root?.OmegaSecondsShadow);if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoSeconds=api})(typeof window!=='undefined'?window:null,function(Shadow){
  if(!Shadow)throw Error('Seconds shadow execution engine unavailable');
- const VERSION=1,INITIAL_USD=100,TRADE_USD=90,DAILY_LOSS_FRACTION=.02;
- const SMALL_VERSION=2,SMALL_INITIAL_USD=88,SMALL_TRADE_USD=8,SMALL_TARGET_NET=.05,
+ const VERSION=1,INITIAL_USD=1500,TRADE_USD=90,DAILY_LOSS_FRACTION=.02;
+ const SMALL_VERSION=2,SMALL_INITIAL_USD=1500,SMALL_TRADE_USD=8,SMALL_TARGET_NET=.05,
   SMALL_STOP_NET=.08,SMALL_DAILY_LOSS_USD=1;
  const sizing=a=>a?.version===SMALL_VERSION?
   {notional:SMALL_TRADE_USD,targetNet:SMALL_TARGET_NET,stopNet:SMALL_STOP_NET}:
@@ -12,12 +12,21 @@
  const dailyCap=(a,start)=>a.version===SMALL_VERSION?Math.min(SMALL_DAILY_LOSS_USD,start*DAILY_LOSS_FRACTION):start*DAILY_LOSS_FRACTION;
  const round=(x,d=4)=>Number(x.toFixed(d));
  const day=now=>new Date(now).toISOString().slice(0,10);
- const initial=(now=Date.now())=>({version:VERSION,starting:INITIAL_USD,cash:INITIAL_USD,
+ const initial=(now=Date.now())=>({version:VERSION,demoFundingVersion:2,starting:INITIAL_USD,cash:INITIAL_USD,
   day:day(now),dayStartEquity:INITIAL_USD,closedTrades:0,wins:0,ledger:Shadow.init(),createdAt:now});
  const smallInitial=(now=Date.now())=>({...initial(now),version:SMALL_VERSION,
   starting:SMALL_INITIAL_USD,cash:SMALL_INITIAL_USD,dayStartEquity:SMALL_INITIAL_USD});
  function restore(raw,now=Date.now(),fallbackVersion=VERSION){
   const fallback=()=>fallbackVersion===SMALL_VERSION?smallInitial(now):initial(now);
+  // Preserve every virtual scalp and closed trade: old $88 small and
+  // $100 legacy wallets receive a one-time virtual credit to $1,500.
+  // A persisted funding marker makes subsequent restores idempotent.
+  const oldInitial=raw?.version===SMALL_VERSION?88:100;
+  const migrated=raw&&raw.starting===oldInitial&&raw.demoFundingVersion!==2&&
+   Number.isFinite(raw.cash)&&Number.isFinite(raw.dayStartEquity)&&raw.dayStartEquity>0?
+   {...raw,starting:1500,cash:raw.cash+(1500-oldInitial),
+    dayStartEquity:raw.dayStartEquity+(1500-oldInitial),demoFundingVersion:2}:raw;
+  raw=migrated;
   if(!raw||![VERSION,SMALL_VERSION].includes(raw.version)||
     raw.starting!==(raw.version===SMALL_VERSION?SMALL_INITIAL_USD:INITIAL_USD)||!Number.isFinite(raw.cash)||
     raw.cash<-10000||raw.cash>100000||!Number.isSafeInteger(raw.closedTrades)||raw.closedTrades<0||
