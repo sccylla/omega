@@ -36,8 +36,10 @@
   $('demo-seconds-equity').textContent=s.estimatedEquity===null?'— (open position unpriced)':money(s.estimatedEquity);$('demo-seconds-net').textContent=money(s.totalNetUsd);
   $('demo-seconds-trades').textContent=s.closedTrades;
   $('demo-seconds-wins').textContent=s.winRatePct===null?'—':s.winRatePct.toFixed(1)+'%';
-  $('demo-seconds-position').textContent=s.open?s.open.side+' '+s.open.symbol+' · $'+s.tradeNotional+' virtual open · '+
-   (s.openMarkPriced?'estimated unrealized '+money(s.unrealizedNetUsd):'waiting for an executable quote'):'No open virtual position';
+  $('demo-seconds-position').textContent=s.openCount?
+   s.openCount+'/'+s.maxOpenPositions+' OPEN · '+s.openPositions.map(p=>p.side+' '+p.symbol).join(', ')+
+   ' · '+(Number.isFinite(s.unrealizedNetUsd)?'estimated unrealized '+money(s.unrealizedNetUsd):'waiting for fresh executable quotes'):
+   '0/'+s.maxOpenPositions+' open · Waiting for qualifying virtual markets';
   $('demo-seconds-risk').textContent=(s.entryBlock?'ENTRY BLOCK: '+s.entryBlock+' · ':'')+'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · $'+s.tradeNotional+' position · +'+money(s.targetNet)+' target / −'+money(s.stopNet)+' modeled stop · 1 position';
   const body=$('demo-seconds-history');body.replaceChildren();
   const recent=[...wallet.ledger.closed].reverse().slice(0,10);
@@ -153,7 +155,7 @@
      notes+'. A WAIT signal means trading conditions do not qualify; it is not a software failure.');
 
   }
-  if(!out.risk.allowed&&!wallet.ledger.open)mode('DEMO RISK LIMIT / WAIT');
+  if(!out.risk.allowed&&!A.stats(wallet,now).openCount)mode('DEMO RISK LIMIT / WAIT');
   else if(!results.some(r=>r.state!=='NO_DATA'&&r.state!=='WARMING'))mode('FEED WARMING / WAIT');
   else mode(results.some(r=>r.state==='WATCH')?'DEMO SIGNAL WATCH':'DEMO SCANNING / WAIT');
  }
