@@ -6,14 +6,14 @@ const Account=require('../static/demo-seconds-account');
 const Shadow=require('../static/seconds-shadow');
 const Engine=require('../static/seconds-engine');
 const NOW=Date.UTC(2026,9,30,17,0,0),S='BTCUSDT';
-const q=(t,bid=99.99,ask=100.01,notional=8)=>({symbol:S,bidVwap:bid,askVwap:ask,notional,observedAt:t,requiredMoveBps:52});
+const q=(t,bid=99.99,ask=100.01,notional=100)=>({symbol:S,bidVwap:bid,askVwap:ask,notional,observedAt:t,requiredMoveBps:52});
 const signal={symbol:S,side:'BUY',state:'WATCH',score:90};
 function open(account=Account.smallInitial(NOW),t=NOW+100){
  const r=Account.step(account,{now:t,signals:[signal],quotes:{[S]:q(t)},connected:true});
  assert.equal(r.events[0].type,'OPEN');
  return r.account;
 }
-test('new account has precisely $1500 virtual funds, 1x $8 sizing and small net exits',()=>{
+test('new account has precisely $1500 virtual funds, 1x $100 sizing and small net exits',()=>{
  const s=Account.smallInitial(NOW),v=Account.stats(s,NOW);
  assert.equal(s.version,Account.SMALL_VERSION);
  assert.equal(v.wallet,1500);
@@ -23,7 +23,7 @@ test('new account has precisely $1500 virtual funds, 1x $8 sizing and small net 
  assert.equal(v.dailyMaxLossUsd,1);
  assert.equal(Account.eligibility(s,NOW).allowed,true);
  const o=open(s).ledger.open;
- assert.equal(o.notional,8);
+ assert.equal(o.notional,100);
  assert.equal(o.targetNet,.05);
  assert.equal(o.stopNet,.08);
 });
@@ -32,7 +32,7 @@ test('small account settles after estimated $0.05 net rather than legacy $0.50',
  const out=Account.step(account,{now:t+1000,quotes:{[S]:q(t+1000,101.2,101.22)},connected:true});
  assert.equal(out.events[0].type,'CLOSED');
  assert.ok(out.events[0].trade.net>=.05);
- assert.equal(out.events[0].trade.notional,8);
+ assert.equal(out.events[0].trade.notional,100);
  assert.match(out.events[0].trade.reason,/\$0\.05 net TP/);
  assert.ok(out.events[0].trade.fees>0&&out.events[0].trade.slippage>0);
  assert.equal(Account.stats(out.account,t+1000).closedTrades,1);
@@ -41,7 +41,7 @@ test('small account settles after estimated $0.05 net rather than legacy $0.50',
 test('small account retains protective -$0.08 stop and no forced 45-second time exit',()=>{
  const t=NOW+100,a=open(Account.smallInitial(NOW),t);
  const held=Account.step(a,{now:t+180000,quotes:{[S]:q(t+180000)},connected:true});
- assert.equal(held.account.ledger.open.notional,8);
+ assert.equal(held.account.ledger.open.notional,100);
  assert.equal(held.events.length,0);
  const stopped=Account.step(held.account,{now:t+181000,quotes:{[S]:q(t+181000,98.9,98.92)},connected:true});
  assert.equal(stopped.events[0].type,'CLOSED');
@@ -65,14 +65,14 @@ test('legacy $1500 demo still runs identical $90 sizing and $0.50 net exits',()=
  assert.equal(openLegacy.account.ledger.open.stopNet,.75);
  assert.equal(Account.TRADE_USD,90);
 });
-test('small $8 execution quote uses $0.05 target without changing default $90 research settings',()=>{
+test('small $100 execution quote uses $0.05 target without changing default $90 research settings',()=>{
  const book={topic:'orderbook.50.'+S,ts:NOW,type:'snapshot',data:{s:S,u:1,seq:1,
   b:[['99.99','1000']],a:[['100.01','1000']]}};
- const small=Engine.create([S],{notional:8,goalNet:.05});
+ const small=Engine.create([S],{notional:100,goalNet:.05});
  const legacy=Engine.create([S]);
  assert.equal(small.ingest(book,NOW),true);
  assert.equal(legacy.ingest(book,NOW),true);
- assert.equal(small.execution(S,NOW).notional,8);
+ assert.equal(small.execution(S,NOW).notional,100);
  assert.equal(legacy.execution(S,NOW).notional,90);
  assert.ok(Number.isFinite(small.execution(S,NOW).requiredMoveBps)&&small.execution(S,NOW).requiredMoveBps>0);
  assert.equal(Engine.MIN_NOTIONAL,90);
@@ -89,11 +89,11 @@ test('UI defaults to independent $1500 wallet and preserves access to older $100
  assert.ok(!client.includes('/v5/order/create'));
 });
 
-test('full small-account book/trade pipeline can actually open one $8 virtual position',()=>{
+test('full small-account book/trade pipeline can actually open one $100 virtual position',()=>{
  const Signals=require('../static/demo-seconds-signals');
  const Guard=require('../static/demo-seconds-guard');
  const Intel=require('../static/demo-scalp-intelligence');
- const engine=Engine.create([S],{notional:8,goalNet:.05}),intel=Intel.create();
+ const engine=Engine.create([S],{notional:100,goalNet:.05}),intel=Intel.create();
  let wallet=Account.smallInitial(NOW),opens=0;
  for(let i=0;i<=64;i++){
   const t=NOW+i*1000,p=100+(i<=20?.65*i/20:i<=45?.65-.42*(i-20)/25:.23+(i-45)*.014);
@@ -112,7 +112,7 @@ test('full small-account book/trade pipeline can actually open one $8 virtual po
   opens+=step.events.filter(e=>e.type==='OPEN').length;
  }
  assert.equal(opens,1);
- assert.equal(wallet.ledger.open.notional,8);
+ assert.equal(wallet.ledger.open.notional,100);
  assert.equal(wallet.ledger.open.targetNet,.05);
  assert.equal(wallet.cash,1500);
 });
