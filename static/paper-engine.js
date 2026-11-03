@@ -7,7 +7,7 @@
   if(root)root.OmegaPaper=api;
 })(typeof window!=='undefined'?window:null,function(){
  'use strict';
- const MIN_NOTIONAL_USD=100, INITIAL=100, FEE_RATE=0.0006, MAX_POSITIONS=1, MAX_NOTIONAL_PCT=100, DAILY_LIMIT_PCT=2, MAX_STOP_RISK_PCT=2, MIN_PROFIT_USD=5;
+ const MIN_NOTIONAL_USD=10, MANUAL_MIN_NOTIONAL_USD=100, INITIAL=100, FEE_RATE=0.0006, MAX_POSITIONS=10, MAX_NOTIONAL_PCT=100, DAILY_LIMIT_PCT=2, MAX_STOP_RISK_PCT=2, MIN_PROFIT_USD=5, MIN_AUTO_PROFIT_USD=.05;
  const validSymbol=s=>/^[A-Z0-9]{2,24}$/.test(String(s||'')) && !String(s).endsWith('USDT');
  const round=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
  const day=t=>new Date(t).toISOString().slice(0,10);
@@ -17,8 +17,8 @@
   if(!valid(s))return initial();
   let changed=false;
   const positions=s.positions.map(p=>{
-   if(p.auto&&(p.closeOnProfit||p.entryEvidence?.strategy==='evidence-v11')&&(p.closeOnProfit||!(p.targetNet>=MIN_PROFIT_USD))){
-    changed=true;return {...p,closeOnProfit:false,targetNet:Math.max(MIN_PROFIT_USD,Number(p.targetNet)||0)};
+   if(p.auto&&(p.closeOnProfit||p.entryEvidence?.strategy==='evidence-v11')&&(p.closeOnProfit||!(p.targetNet>=(p.notional<100?MIN_AUTO_PROFIT_USD:MIN_PROFIT_USD)))){
+    changed=true;return {...p,closeOnProfit:false,targetNet:Math.max(p.notional<100?MIN_AUTO_PROFIT_USD:MIN_PROFIT_USD,Number(p.targetNet)||0)};
    }
    return p;
   });
@@ -30,15 +30,20 @@
   const price=quotes?.[symbol];notional=Number(notional);
   if(!validSymbol(symbol)||!['BUY','SELL'].includes(side))throw Error('Choose a supported demo market and trade direction.');
   if(!Number.isFinite(price)||price<=0)throw Error('Market quote is unavailable. No demo order can be placed.');
-  if(!Number.isFinite(notional)||notional<MIN_NOTIONAL_USD)throw Error('Demo position must be at least $100.');
+  if(!Number.isFinite(notional)||notional<(arguments[2].auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD))throw Error('Demo position must meet the $'+(arguments[2].auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD)+' minimum.');
   if(!Number.isFinite(stopPct)||stopPct<=0||stopPct>10||!Number.isFinite(targetPct)||targetPct<=0||targetPct>50)throw Error('Invalid stop or profit target.');
   const eq=equity(s,quotes);
-  if(s.positions.length>=MAX_POSITIONS)throw Error('One demo trade at a time. Close the existing position first.');
+  if(s.positions.length>=MAX_POSITIONS)throw Error('10 demo position slots filled. Manage exits before opening another.');
   if(s.positions.some(p=>p.symbol===symbol))throw Error('Close the existing '+symbol+' position first.');
   if(day(now)===s.day&&eq<=s.dayStartEquity*(1-DAILY_LIMIT_PCT/100))throw Error('Daily virtual loss limit reached.');
-  if(notional>eq*MAX_NOTIONAL_PCT/100+0.001)throw Error('The $100 minimum requires at least $100 virtual equity. Trade size cannot exceed the available demo equity.');
+  const committed=s.positions.reduce((sum,p)=>sum+Number(p.notional||0),0);
+  if(committed+notional>eq*MAX_NOTIONAL_PCT/100+.001)
+   throw Error('Insufficient uncommitted virtual equity: all demo positions together must fit within the account balance.');
   const qty=notional/price,fee=notional*FEE_RATE,risk=notional*(stopPct/100+2*FEE_RATE);
-  if(risk>eq*MAX_STOP_RISK_PCT/100+0.01)throw Error('Estimated stop risk exceeds 2% of virtual equity.');
+  const allocatedRisk=s.positions.reduce((sum,p)=>sum+Math.abs(p.entry-p.stop)*p.qty+
+   Number(p.notional||0)*FEE_RATE*2,0);
+  if(allocatedRisk+risk>eq*MAX_STOP_RISK_PCT/100+0.01)
+   throw Error('Combined estimated stops and fees exceed 2% of demo account equity.');
   const mult=side==='BUY'?1:-1;
   return {symbol,side,price,notional,qty,fee,stop:price*(1-mult*stopPct/100),target:price*(1+mult*targetPct/100),estimatedStopRisk:risk};
  }
@@ -51,7 +56,7 @@
   if(day(now)!==s.day){s={...s,day:day(now),dayStartEquity:equity(s,quotes)};}
   const id='paper-'+now+'-'+Math.random().toString(36).slice(2,8);
   const meaningful=ticket.auto&&(ticket.closeOnProfit||ticket.entryEvidence?.strategy==='evidence-v11');
-  const position={id,symbol:prev.symbol,side:prev.side,entry:prev.price,qty:prev.qty,notional:prev.notional,entryFee:prev.fee,stop:prev.stop,target:prev.target,openedAt:now,auto:!!ticket.auto,closeOnProfit:false,autoAtr:ticket.auto&&Number.isFinite(ticket.atr)&&ticket.atr>0?ticket.atr:undefined,autoTrailArmed:false,autoBest:prev.price,slippageBps:slip,targetNet:meaningful?Math.max(MIN_PROFIT_USD,Number(ticket.targetNet)||0):ticket.auto?ticket.targetNet:undefined,entryEvidence:ticket.entryEvidence};
+  const position={id,symbol:prev.symbol,side:prev.side,entry:prev.price,qty:prev.qty,notional:prev.notional,entryFee:prev.fee,stop:prev.stop,target:prev.target,openedAt:now,auto:!!ticket.auto,closeOnProfit:false,autoAtr:ticket.auto&&Number.isFinite(ticket.atr)&&ticket.atr>0?ticket.atr:undefined,autoTrailArmed:false,autoBest:prev.price,slippageBps:slip,targetNet:meaningful?Math.max(prev.notional<100?MIN_AUTO_PROFIT_USD:MIN_PROFIT_USD,Number(ticket.targetNet)||0):ticket.auto?ticket.targetNet:undefined,entryEvidence:ticket.entryEvidence};
   return {...s,cash:s.cash-prev.fee,positions:[...s.positions,position]};
  }
  function close(s,id,price,reason='Manual close',now=Date.now()){
@@ -96,7 +101,7 @@
    const fill=price*(1-(p.side==='BUY'?1:-1)*(p.slippageBps||0)/10000);
    const exitNet=markPnl(p,fill)-p.entryFee-p.qty*fill*FEE_RATE;
    const meaningful=p.closeOnProfit||evidencePolicy;
-   const profitTarget=p.auto&&(meaningful?exitNet>=Math.max(MIN_PROFIT_USD,Number(p.targetNet)||0):Number.isFinite(p.targetNet)&&exitNet>=p.targetNet);
+   const profitTarget=p.auto&&(meaningful?exitNet>=Math.max(p.notional<100?MIN_AUTO_PROFIT_USD:MIN_PROFIT_USD,Number(p.targetNet)||0):Number.isFinite(p.targetNet)&&exitNet>=p.targetNet);
    const reversal=!!(!evidencePolicy&&p.auto&&p.autoTrailArmed&&market?.[p.symbol]?.reversal&&exitNet>0);
    if(stopped||hitManualTarget||reversal||profitTarget){
     const reason=stopped?(p.auto&&p.autoTrailArmed?'Adaptive profit trail (sampled quote)':'Stop simulated'):profitTarget?'Net profit target (after estimated costs)':reversal?'Profitable trend reversal (sampled quote)':'Target simulated';
@@ -107,5 +112,5 @@
   return out;
  }
  function todayPnl(s){return round(s.closed.filter(x=>day(x.closedAt)===day(Date.now())).reduce((sum,x)=>sum+x.net,0));}
- return {INITIAL,MIN_NOTIONAL_USD,FEE_RATE,MAX_POSITIONS,MAX_NOTIONAL_PCT,DAILY_LIMIT_PCT,MAX_STOP_RISK_PCT,MIN_PROFIT_USD,initial,restore,valid,markPnl,equity,entryPreview,open,close,applyQuote,todayPnl,round};
+ return {INITIAL,MIN_NOTIONAL_USD,MANUAL_MIN_NOTIONAL_USD,MIN_AUTO_PROFIT_USD,FEE_RATE,MAX_POSITIONS,MAX_NOTIONAL_PCT,DAILY_LIMIT_PCT,MAX_STOP_RISK_PCT,MIN_PROFIT_USD,initial,restore,valid,markPnl,equity,entryPreview,open,close,applyQuote,todayPnl,round};
 });
