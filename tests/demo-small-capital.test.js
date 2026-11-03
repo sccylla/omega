@@ -17,7 +17,7 @@ test('new account has precisely $1500 virtual funds, 1x $100 sizing and small ne
  const s=Account.smallInitial(NOW),v=Account.stats(s,NOW);
  assert.equal(s.version,Account.SMALL_VERSION);
  assert.equal(v.wallet,1500);
- assert.equal(v.tradeNotional,8);
+ assert.equal(v.tradeNotional,100);
  assert.equal(v.targetNet,.50);
  assert.equal(v.stopNet,.75);
  assert.equal(v.dailyMaxLossUsd,10);
@@ -31,7 +31,7 @@ test('small account settles after estimated $0.50 net rather than legacy $0.50',
  const t=NOW+100,account=open(Account.smallInitial(NOW),t);
  const out=Account.step(account,{now:t+1000,quotes:{[S]:q(t+1000,101.2,101.22)},connected:true});
  assert.equal(out.events[0].type,'CLOSED');
- assert.ok(out.events[0].trade.net>=.05);
+ assert.ok(out.events[0].trade.net>=.50);
  assert.equal(out.events[0].trade.notional,100);
  assert.match(out.events[0].trade.reason,/\$0\.50 net TP/);
  assert.ok(out.events[0].trade.fees>0&&out.events[0].trade.slippage>0);
@@ -45,7 +45,7 @@ test('small account retains protective -$0.75 stop and no forced 45-second time 
  assert.equal(held.events.length,0);
  const stopped=Account.step(held.account,{now:t+181000,quotes:{[S]:q(t+181000,98.9,98.92)},connected:true});
  assert.equal(stopped.events[0].type,'CLOSED');
- assert.ok(stopped.events[0].trade.net<=-.08);
+ assert.ok(stopped.events[0].trade.net<=-.75);
  assert.match(stopped.events[0].trade.reason,/\$0\.75 loss trigger/);
 });
 test('a $1 closed daily loss prevents new positions but does not erase cash/history',()=>{
@@ -113,6 +113,6 @@ test('full small-account book/trade pipeline can actually open one $100 virtual 
  }
  assert.equal(opens,1);
  assert.equal(wallet.ledger.open.notional,100);
- assert.equal(wallet.ledger.open.targetNet,.05);
+ assert.equal(wallet.ledger.open.targetNet,.50);
  assert.equal(wallet.cash,1500);
 });
