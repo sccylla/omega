@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
- const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,X=window.OmegaDemoSecondsSignals,G=window.OmegaDemoScalpGuard,I=window.OmegaDemoScalpIntelligence;
- if(!E||!A||!X||!G||!I||!$('demo-seconds-start'))return;
+ const $=id=>document.getElementById(id),E=window.OmegaSecondsEngine,A=window.OmegaDemoSeconds,H=window.OmegaSecondsShadow,X=window.OmegaDemoSecondsSignals,G=window.OmegaDemoScalpGuard,I=window.OmegaDemoScalpIntelligence;
+ if(!E||!A||!H||!X||!G||!I||!$('demo-seconds-start'))return;
  const KEY='omega_demo_seconds_wallet_v1',SMALL_KEY='omega_demo_seconds_wallet_88_v1',WS='wss://stream.bybit.com/v5/public/linear';
  let walletKey=SMALL_KEY;
  const money=x=>Number.isFinite(x)?(x<0?'−$':'$')+Math.abs(x).toFixed(2):'—',
@@ -14,7 +14,7 @@
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(walletKey)||'null'),Date.now(),walletKey===SMALL_KEY?A.SMALL_VERSION:A.VERSION)}catch{return walletKey===SMALL_KEY?A.smallInitial():A.initial()}}
  wallet=read();
  // An open position from a closed/reloaded browser has no verified exit.
- if(wallet.ledger.open){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
+ if(H.openList(wallet.ledger).length){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
  function persist(){
   try{localStorage.setItem(walletKey,JSON.stringify(wallet));return true}
   catch{halt('Demo wallet storage unavailable. Virtual trading paused without claiming a fill.');return false}
@@ -51,6 +51,10 @@
    }
    body.append(tr);
   }
+  // The visible Demo Open Trades table reflects the active wallet and the
+  // same fresh executable quotes used by the virtual exit engine.
+  window.dispatchEvent(new CustomEvent('omega:demo-scalper-state',{
+   detail:{wallet,quotes:latestQuotes,at:Date.now()}}));
  }
  function halt(reason){
   epoch++;active=false;
@@ -58,7 +62,7 @@
   lastFeedUpdate=0;latestQuotes={};
   if(socket){try{socket.onopen=null;socket.onmessage=null;socket.onerror=null;socket.onclose=null;socket.close()}catch{}}
   socket=null;engine=null;
-  if(wallet.ledger.open){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
+  if(H.openList(wallet.ledger).length){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
   button.textContent='Start Demo Seconds Scalper';mode('OFF · DEMO ONLY');
   setStatus(reason||'Seconds Demo paused. No real-money orders are involved.');renderAccount();
  }
@@ -68,7 +72,7 @@
   socket=null;lastFeedUpdate=0;latestQuotes={};
   // A disconnected book cannot verify an exit. Never reprice or resurrect
   // an open virtual trade after reconnection.
-  if(wallet.ledger.open){
+  if(H.openList(wallet.ledger).length){
    wallet=A.interrupt(wallet);
    try{localStorage.setItem(walletKey,JSON.stringify(wallet))}
    catch{halt('Demo storage unavailable after disconnect. No virtual fill invented.');return}
@@ -196,7 +200,7 @@
   if(active){$('demo-seconds-profile').value=walletKey===SMALL_KEY?'small':'legacy';setStatus('Pause the scanner before switching practice accounts.');return}
   walletKey=$('demo-seconds-profile').value==='legacy'?KEY:SMALL_KEY;
   wallet=read();latestQuotes={};
-  if(wallet.ledger.open){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
+  if(H.openList(wallet.ledger).length){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
   renderAccount();
   setStatus('Selected '+(walletKey===SMALL_KEY?'$88/$15 small-account':'$100/$90 legacy')+' virtual DEMO wallet. No real orders. Press Start to scan.');
  });
@@ -218,7 +222,7 @@
  });
  document.addEventListener('visibilitychange',()=>{if(document.hidden&&active)halt('Seconds Demo paused when the tab became hidden. No fabricated exits.')});
  window.addEventListener('omega:account-mode',()=>{if(active&&document.body.dataset.account!=='demo')halt('Seconds Demo paused after switching accounts.')});
- window.addEventListener('beforeunload',()=>{active=false;if(wallet.ledger.open)wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}});
+ window.addEventListener('beforeunload',()=>{active=false;if(H.openList(wallet.ledger).length)wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}});
  setInterval(()=>{if(active){try{tick()}catch(e){halt('Demo scanner stopped after a processing error: '+String(e?.message||e).slice(0,180)+'. Please report this message; no real funds were touched.')}}},1000);
  setInterval(()=>{if(active&&socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify({op:'ping'}))},20000);
  renderAccount();
