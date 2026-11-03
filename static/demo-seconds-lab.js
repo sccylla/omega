@@ -202,7 +202,7 @@
   wallet=read();latestQuotes={};
   if(H.openList(wallet.ledger).length){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
   renderAccount();
-  setStatus('Selected '+(walletKey===SMALL_KEY?'$88/$15 small-account':'$100/$90 legacy')+' virtual DEMO wallet. No real orders. Press Start to scan.');
+  setStatus('Selected '+(walletKey===SMALL_KEY?'$1,500/$8 scalper':'$1,500/$90 legacy')+' virtual DEMO wallet. No real orders. Press Start to scan.');
  });
  $('demo-seconds-reset').addEventListener('click',()=>{
   if(active){setStatus('Pause seconds scalping before resetting the demo test wallet.');return}
