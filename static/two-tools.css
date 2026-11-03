@@ -10,8 +10,8 @@ body{background:#08111a}
 #view-demo>.home-title,#view-real>.home-title{margin-top:16px;margin-bottom:14px}
 #view-demo>.home-title .reset-button{display:none!important}
 #view-demo>.demo-warning,#view-demo>.paper-sync-bar,#view-demo>#demo-manual-panel{display:none!important}
-#view-demo> :not(.home-title):not(.demo-summary):not(#demo-open-trades):not(#demo-seconds-lab):not(#demo-auto-panel){display:none!important}
-#view-real> :not(.home-title):not(.real-banner):not(.real-balance-grid):not(#real-open-trades):not(#live-autopilot):not(#seconds-lab){display:none!important}
+#view-demo> :not(.home-title):not(.demo-summary):not(#demo-open-trades):not(#demo-trade-history):not(#demo-seconds-lab):not(#demo-auto-panel){display:none!important}
+#view-real> :not(.home-title):not(.real-banner):not(.real-balance-grid):not(#real-open-trades):not(#real-trade-history):not(#live-autopilot):not(#seconds-lab){display:none!important}
 #view-real>#seconds-lab{margin-top:16px}
 #view-demo>#demo-seconds-lab,#view-demo>#demo-auto-panel,#view-real>#live-autopilot,#view-real>#seconds-lab{
  display:block!important;visibility:visible!important;max-width:none;border:1px solid #2a4854;
