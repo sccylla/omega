@@ -11,17 +11,34 @@ const numeric=v=>v===null||v===undefined||v===''?null:Number.isFinite(Number(v))
 const positive=v=>{const n=numeric(v);return n!==null&&n>0?n:null};
 let liveBusy=false,scalpState=null,futuresQuotes=new Map(),futuresBusy=false;
 let lastFuturesQuote=0,initialFuturesLoaded=false;
+const closing=new Set();
 const row=(body,values,classes={})=>{
  const tr=document.createElement('tr');
  for(let i=0;i<values.length;i++){
   const td=document.createElement('td');td.textContent=String(values[i]);if(classes[i])td.className=classes[i];tr.append(td);
  }
- body.append(tr);
+ body.append(tr);return tr;
 };
 function empty(body,message){
  body.replaceChildren();
  const tr=document.createElement('tr'),td=document.createElement('td');
- td.colSpan=7;td.className='open-trades-empty';td.textContent=message;tr.append(td);body.append(tr);
+ td.colSpan=8;td.className='open-trades-empty';td.textContent=message;tr.append(td);body.append(tr);
+}
+function closeControl(tr,key,enabled,handler){
+ const td=document.createElement('td'),button=document.createElement('button');
+ button.type='button';button.className='open-trade-close-btn';
+ button.textContent=closing.has(key)?'Closing…':'Close';
+ button.disabled=!enabled||closing.has(key);
+ button.title=!enabled?'A fresh price or authorized broker session is required':'Close only this position';
+ button.addEventListener('click',async()=>{
+  if(closing.has(key))return;
+  closing.add(key);button.disabled=true;button.textContent='Closing…';
+  try{await handler()}
+  catch(e){const id=key.startsWith('real:')?'real-open-status':'demo-open-count';
+   $(id).textContent='Close failed: '+(e?.message||'Unknown error')+' · position remains open until verified';}
+  finally{closing.delete(key);button.disabled=false;button.textContent='Close'}
+ });
+ td.append(button);tr.append(td);
 }
 const direction=s=>s==='Buy'||s==='BUY'?'LONG':s==='Sell'||s==='SELL'?'SHORT':'UNKNOWN';
 function pnlClass(n){return !Number.isFinite(n)?'open-trades-unavailable':n>=0?'open-trades-positive':'open-trades-negative'}
@@ -48,9 +65,14 @@ function paintScalps(){
   const pl=usable?H.pnl(p,q):null;
   const stop=Number.isFinite(p.stopNet)?'−'+money(p.stopNet):'—';
   const target=Number.isFinite(p.targetNet)?'+'+money(p.targetNet):'—';
-  row(body,[p.symbol,direction(p.side),money(p.notional),price(p.entry),
+  const tr=row(body,[p.symbol,direction(p.side),money(p.notional),price(p.entry),
    exit===null?'— (no fresh quote)':price(exit),pl===null?'—':money(pl),
    target+' / '+stop],{1:direction(p.side)==='LONG'?'open-trades-long':'open-trades-short',5:pnlClass(pl)});
+  closeControl(tr,'demo-scalp:'+p.symbol,usable&&!!window.OmegaDemoScalperClose,async()=>{
+   if(!window.confirm('Close this DEMO scalp '+p.symbol+' at the latest executable price? This realizes simulated profit or loss.'))return;
+   await window.OmegaDemoScalperClose.close(p.symbol);
+   paintScalps();updateDemoCount();
+  });
  }
 }
 function futuresAccount(){
@@ -72,11 +94,26 @@ function paintFutures(){
   const fee=window.OmegaPaper?.FEE_RATE??.0006;
   const pl=exit!==null&&entry!==null&&qty!==null?
    (p.side==='BUY'?1:-1)*qty*(exit-entry)-(Number(p.entryFee)||0)-qty*exit*fee:null;
-  row(body,[p.symbol+'USDT',direction(p.side),money(p.notional),price(entry),
+  const tr=row(body,[p.symbol+'USDT',direction(p.side),money(p.notional),price(entry),
    exit===null?'— (fetching quote)':price(exit),
    pl===null?'—':money(pl),
    price(positive(p.target))+' / '+price(positive(p.stop))],
    {1:p.side==='BUY'?'open-trades-long':'open-trades-short',5:pnlClass(pl)});
+  closeControl(tr,'demo-futures:'+p.id,!!window.OmegaAccount&&!!window.OmegaDecision?.quote,async()=>{
+   if(!window.confirm('Close this DEMO '+direction(p.side)+' '+p.symbol+' position? This will realize its simulated profit or loss.'))return;
+   const latest=await window.OmegaDecision.quote(p.symbol);
+   if(!Number.isFinite(latest.observedAt)||Date.now()-latest.observedAt>10000)
+    throw Error('Fresh demo exit quote not available');
+   const current=p.side==='BUY'?latest.bid:latest.ask;
+   if(!Number.isFinite(current)||current<=0)throw Error('Invalid executable exit quote');
+   await window.OmegaAccount.transact(a=>{
+    const position=a.positions.find(x=>x.id===p.id);
+    if(!position||position.symbol!==p.symbol||position.side!==p.side)
+     throw Error('Demo position changed or already closed. Refresh the table.');
+    return window.OmegaPaper.close(a,p.id,current,'Manual close from Open Trades');
+   },{requireLock:true});
+   futuresQuotes.delete(p.symbol);paintFutures();updateFuturesQuotes(true);
+  });
  }
  updateDemoCount();
 }
@@ -112,6 +149,17 @@ async function updateFuturesQuotes(force=false){
   }
  }finally{futuresBusy=false;initialFuturesLoaded=true;paintFutures()}
 }
+async function closeRequest(body){
+ const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+ try{
+  const res=await fetch('/api/auto-live',{method:'POST',cache:'no-store',credentials:'same-origin',
+   headers:{'Content-Type':'application/json','X-OMEGA-REQUEST':'1'},
+   body:JSON.stringify(body),signal:controller.signal});
+  const data=await res.json();
+  if(!res.ok)throw Error(data?.error||'Real close request rejected; check your Bybit account.');
+  return data;
+ }finally{clearTimeout(timeout)}
+}
 async function refreshReal(){
  if(liveBusy||document.hidden||document.body.dataset.account!=='real')return;
  liveBusy=true;$('real-open-refresh').disabled=true;
@@ -139,10 +187,21 @@ async function refreshReal(){
    const notional=positive(p.positionValue)??(mark&&size?mark*size:null);
    const pnl=numeric(p.unrealisedPnl),tp=positive(p.takeProfit),sl=positive(p.stopLoss);
    const protection=tp&&sl?price(tp)+' / '+price(sl):tp?price(tp)+' / NO STOP':sl?'NO TP / '+price(sl):'TP / SL NOT SET';
-   row(body,[p.symbol||'UNKNOWN',side,notional===null?'—':money(notional),
+   const tr=row(body,[p.symbol||'UNKNOWN',side,notional===null?'—':money(notional),
     price(entry),price(mark),pnl===null?'—':money(pnl),protection],{
     1:side==='LONG'?'open-trades-long':side==='SHORT'?'open-trades-short':'open-trades-warning',
     5:pnlClass(pnl),6:tp&&sl?'':'open-trades-warning'});
+   closeControl(tr,'real:'+p.symbol,!!p.symbol&&!!size&&side!=='UNKNOWN',async()=>{
+    if(!window.confirm('REAL MONEY: Prepare to close your ENTIRE '+side+' '+p.symbol+' position at market price? Losses, fees and slippage are possible.'))return;
+    const preview=await closeRequest({action:'preview_close',symbol:p.symbol});
+    const message='FINAL REAL-MONEY CONFIRMATION: CLOSE '+preview.size+' '+preview.symbol+
+     ' ('+direction(preview.side)+') at MARKET price using reduce-only order? A loss may be realized. No guaranteed execution price.';
+    if(!window.confirm(message))return;
+    const result=await closeRequest({action:'close_position',symbol:p.symbol,
+     previewToken:preview.previewToken,confirm:'CLOSE REAL '+p.symbol});
+    status.textContent=result.message||'Bybit received the close request. Verify the fill.';
+    await refreshReal();
+   });
   }
   if(data.hasMorePositions&&data.positions.length===0)empty(body,'Bybit reports additional positions but returned no complete first page. Refresh or inspect Bybit.');
  }catch(e){
