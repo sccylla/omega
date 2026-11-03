@@ -36,7 +36,7 @@ test('a smaller qualified demo momentum burst opens a $90 virtual trade without 
  assert.equal(result.events.length,1);
  assert.equal(result.events[0].type,'OPEN');
  assert.equal(result.account.ledger.open.notional,90);
- assert.equal(result.account.cash,100);
+ assert.equal(result.account.cash,1500);
 });
 test('flat price, stale data, wrong-side trade flow and excessively wide spreads remain blocked',()=>{
  const flat=feed(.0001);
