@@ -58,7 +58,7 @@ test('Real account allows a $100 order only when equity and aggregate risk can a
  assert.equal(Portfolio.PER_ORDER_USD,100);
  assert.equal(result.remainingSlots,9);
  assert.ok(result.notional<=funded.equity*.2);
- const nine=names.slice(0,9).map(s=>protectedPos(s));
+ const nine=names.slice(0,9).map(s=>({...protectedPos(s),size:'1'}));
  assert.throws(()=>Portfolio.validate(liveSnapshot(nine,8000,8000)),/risk|budget/i);
  assert.throws(()=>Portfolio.validate(liveSnapshot(names.map(s=>protectedPos(s)),8000,8000)),/10 positions/);
 });
