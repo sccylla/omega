@@ -21,7 +21,9 @@ test('Bybit server returns actual entry/mark/unrealized P&L without placing brok
   assert.ok(source.includes(s),s);
  assert.match(client,/\/api\/live\?action=bybit/);
  assert.ok(!client.includes('/v5/order/create'));
- assert.ok(!client.includes('/api/auto-live'));
+ assert.match(client,/action:'preview_close'/);
+ assert.match(client,/action:'close_position'/);
+ assert.match(client,/Close/);
 });
 test('Demo seconds engine publishes positions and does not leave phantom positions on disconnect',()=>{
  const demo=read('static/demo-seconds-lab.js');
