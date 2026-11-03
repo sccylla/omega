@@ -4,7 +4,7 @@
 (function(root,factory){const api=factory(typeof module!=='undefined'&&module.exports?require('./seconds-shadow'):root?.OmegaSecondsShadow);if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoSeconds=api})(typeof window!=='undefined'?window:null,function(Shadow){
  if(!Shadow)throw Error('Seconds shadow execution engine unavailable');
  const VERSION=1,INITIAL_USD=100,TRADE_USD=90,DAILY_LOSS_FRACTION=.02;
- const SMALL_VERSION=2,SMALL_INITIAL_USD=88,SMALL_TRADE_USD=15,SMALL_TARGET_NET=.05,
+ const SMALL_VERSION=2,SMALL_INITIAL_USD=88,SMALL_TRADE_USD=8,SMALL_TARGET_NET=.05,
   SMALL_STOP_NET=.08,SMALL_DAILY_LOSS_USD=1;
  const sizing=a=>a?.version===SMALL_VERSION?
   {notional:SMALL_TRADE_USD,targetNet:SMALL_TARGET_NET,stopNet:SMALL_STOP_NET}:
@@ -33,9 +33,14 @@
  function eligibility(account,now=Date.now()){
   const value=restore(account,now),fresh=day(now)!==value.day,
    start=fresh?value.cash:value.dayStartEquity;
-  if(value.ledger.open)return {allowed:false,reason:'An existing seconds virtual position must close first'};
+  const positions=Shadow.openList(value.ledger);
+  const slots=value.version===SMALL_VERSION?10:1;
+  if(positions.length>=slots)return {allowed:false,reason:'All '+slots+' virtual scalp position slots are occupied'};
+  const committed=positions.reduce((sum,p)=>sum+p.notional,0);
   const policy=sizing(value);
-  if(value.cash+1e-8<policy.notional)return {allowed:false,reason:'Virtual equity below the $'+policy.notional+' position minimum'};
+  if(value.cash-committed+1e-8<policy.notional)return {allowed:false,reason:'Virtual uncommitted cash cannot fund another $'+policy.notional+' scalp'};
+  if((positions.length+1)*policy.stopNet>dailyCap(value,start)+Math.min(0,value.cash-start)+1e-8)
+   return {allowed:false,reason:'Portfolio modeled stops would exceed the remaining demo daily loss budget'};
   if(value.cash<=start-dailyCap(value,start)+1e-8)
    return {allowed:false,reason:'2% demo daily loss limit reached'};
   return {allowed:true,reason:'Eligible for $'+policy.notional+' virtual research entries'};
@@ -45,7 +50,9 @@
   if(day(now)!==account.day)account={...account,day:day(now),dayStartEquity:account.cash};
   const risk=eligibility(account,now);
   const policy=sizing(account);
-  const result=Shadow.step(account.ledger,{now,signals:risk.allowed?signals:[],quotes,connected,maxHoldMs:null,cooldownMs:3000,...policy});
+  const order={now,signals:risk.allowed?signals:[],quotes,connected,maxHoldMs:null,cooldownMs:3000,...policy};
+  const result=account.version===SMALL_VERSION?Shadow.stepMany(account.ledger,
+   {...order,maxPositions:10,budgetUsd:account.cash}):Shadow.step(account.ledger,order);
   if(!result.events.length)return {account:{...account,ledger:result.state},events:[],risk};
   const trades=result.events.filter(e=>e.type==='CLOSED').map(e=>e.trade);
   const net=trades.reduce((sum,t)=>sum+t.net,0);
@@ -56,18 +63,24 @@
  }
  function interrupt(raw,now=Date.now()){
   const account=restore(raw,now);
-  return {...account,ledger:Shadow.interrupt(account.ledger)};
+  return {...account,ledger:account.version===SMALL_VERSION?Shadow.interruptMany(account.ledger):Shadow.interrupt(account.ledger)};
  }
  function stats(raw,now=Date.now(),quotes={}){
   const a=restore(raw,now),rawStats=Shadow.stats(a.ledger),
    risk=eligibility(a,now);
-  const position=a.ledger.open,q=position&&quotes?.[position.symbol];
+  const positions=Shadow.openList(a.ledger),position=positions[0]||null,q=position&&quotes?.[position.symbol];
   const priced=Boolean(position&&q&&Number.isFinite(position.entry)&&position.entry>0&&
    Number.isFinite(q.bidVwap)&&q.bidVwap>0&&Number.isFinite(q.askVwap)&&q.askVwap>q.bidVwap&&
    Number.isFinite(q.observedAt)&&q.observedAt<=now+1000&&now-q.observedAt<=2300);
-  const unrealized=priced?Shadow.pnl(position,q):null;
+  const estimates=positions.map(p=>{
+   const quote=quotes?.[p.symbol],valid=quote&&Number.isFinite(quote.bidVwap)&&Number.isFinite(quote.askVwap)&&
+    Number.isFinite(quote.observedAt)&&quote.observedAt<=now+1000&&now-quote.observedAt<=2300;
+   return valid?Shadow.pnl(p,quote):null;
+  });
+  const unrealized=positions.length&&estimates.every(Number.isFinite)?
+   estimates.reduce((sum,x)=>sum+x,0):positions.length?null:0;
   return {wallet:round(a.cash,2),equity:round(a.cash,2),
-   estimatedEquity:position?(Number.isFinite(unrealized)?round(a.cash+unrealized,2):null):round(a.cash,2),
+   estimatedEquity:positions.length?(Number.isFinite(unrealized)?round(a.cash+unrealized,2):null):round(a.cash,2),
    unrealizedNetUsd:Number.isFinite(unrealized)?round(unrealized,4):null,
    openMarkPriced:priced,
    totalNetUsd:round(a.cash-a.starting,2),
@@ -77,7 +90,9 @@
    winRatePct:a.closedTrades?round(a.wins/a.closedTrades*100,1):null,
    dailyMaxLossUsd:round(dailyCap(a,a.day===day(now)?a.dayStartEquity:a.cash),2),
    canEnter:risk.allowed,entryBlock:risk.allowed?null:risk.reason,
-   open:a.ledger.open?{symbol:a.ledger.open.symbol,side:a.ledger.open.side,entry:a.ledger.open.entry,openedAt:a.ledger.open.openedAt}:null,
+   open:position?{symbol:position.symbol,side:position.side,entry:position.entry,openedAt:position.openedAt}:null,
+   openCount:positions.length,openPositions:positions.map(p=>({symbol:p.symbol,side:p.side,entry:p.entry,notional:p.notional,openedAt:p.openedAt})),
+   maxOpenPositions:a.version===SMALL_VERSION?10:1,
    recent:rawStats.last,incomplete:rawStats.incomplete,
    ledgerLocalOnly:true};
  }
