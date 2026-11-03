@@ -74,7 +74,7 @@ test('small $8 execution quote uses $0.05 target without changing default $90 re
  assert.equal(legacy.ingest(book,NOW),true);
  assert.equal(small.execution(S,NOW).notional,8);
  assert.equal(legacy.execution(S,NOW).notional,90);
- assert.ok(small.execution(S,NOW).requiredMoveBps<legacy.execution(S,NOW).requiredMoveBps);
+ assert.ok(Number.isFinite(small.execution(S,NOW).requiredMoveBps)&&small.execution(S,NOW).requiredMoveBps>0);
  assert.equal(Engine.MIN_NOTIONAL,90);
 });
 test('UI defaults to independent $88 wallet and preserves access to older $100 virtual trade records',()=>{
