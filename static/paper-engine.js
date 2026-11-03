@@ -7,7 +7,7 @@
   if(root)root.OmegaPaper=api;
 })(typeof window!=='undefined'?window:null,function(){
  'use strict';
- const MIN_NOTIONAL_USD=10, MANUAL_MIN_NOTIONAL_USD=100, INITIAL=100, FEE_RATE=0.0006, MAX_POSITIONS=10, MAX_NOTIONAL_PCT=100, DAILY_LIMIT_PCT=2, MAX_STOP_RISK_PCT=2, MIN_PROFIT_USD=5, MIN_AUTO_PROFIT_USD=.05;
+ const MIN_NOTIONAL_USD=9.5, MANUAL_MIN_NOTIONAL_USD=100, INITIAL=100, FEE_RATE=0.0006, MAX_POSITIONS=10, MAX_NOTIONAL_PCT=100, DAILY_LIMIT_PCT=2, MAX_STOP_RISK_PCT=2, MIN_PROFIT_USD=5, MIN_AUTO_PROFIT_USD=.05;
  const validSymbol=s=>/^[A-Z0-9]{2,24}$/.test(String(s||'')) && !String(s).endsWith('USDT');
  const round=n=>Math.round((Number(n)+Number.EPSILON)*100)/100;
  const day=t=>new Date(t).toISOString().slice(0,10);
