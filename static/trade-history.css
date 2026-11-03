@@ -1,0 +1,49 @@
+/* Omega Trade History: a dedicated read-only ledger in each account. */
+#view-demo>#demo-trade-history,#view-real>#real-trade-history{
+ display:block!important;visibility:visible!important;
+ background:linear-gradient(150deg,#172735,#101c2a 70%)!important;
+ border:1px solid #345363;border-radius:18px;padding:22px;margin:0 0 26px;
+ box-shadow:0 10px 30px rgba(0,0,0,.12)
+}
+.trade-history-header{display:flex;gap:18px;justify-content:space-between;align-items:flex-start;flex-wrap:wrap}
+.trade-history-header h2{font-size:clamp(23px,2.4vw,29px);margin:4px 0 8px;color:#f6fcff}
+.trade-history-header p{font-size:13px;line-height:1.6;color:#b6cbd4;max-width:800px;margin:0}
+.trade-history-actions{display:flex;flex-wrap:wrap;gap:10px}
+.trade-history-actions button:disabled{opacity:.55;cursor:wait}
+.trade-history-filters{margin:20px 0 17px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:11px}
+.trade-history-filters label{font-size:11px;font-weight:700;color:#bfd1da;display:flex;flex-direction:column;gap:8px}
+.trade-history-filters select,.trade-history-filters input{
+ width:100%;background:#0c1c29;color:#ebf9ff;border:1px solid #3a5764;border-radius:9px;
+ min-height:43px;padding:9px 12px;font-size:13px;font-family:inherit;outline-offset:3px
+}
+.trade-history-filters select:focus-visible,.trade-history-filters input:focus-visible,
+.trade-history-actions button:focus-visible{outline:2px solid #8be7ca}
+.trade-history-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 13px}
+.trade-history-stats>div{padding:15px 14px;background:#0b202d;border:1px solid #2f4c59;border-radius:12px;min-width:0}
+.trade-history-stats small{font-size:10px;font-weight:700;letter-spacing:.055em;color:#aec6d2;display:block;margin-bottom:7px}
+.trade-history-stats strong{font-size:clamp(18px,2vw,24px);font-weight:750;color:#f3fcff;display:block;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.trade-history-stats .trade-history-profit{color:#8ce9bc}
+.trade-history-stats .trade-history-loss{color:#ffabb4}
+.trade-history-status{font-size:12px;color:#bad4de;min-height:18px;margin:7px 0 13px}
+.trade-history-scroll{overflow-x:auto;max-width:100%;border:1px solid #345365;border-radius:11px}
+.trade-history-table{width:100%;min-width:1050px;border-collapse:collapse;font-size:12px;text-align:left}
+.trade-history-table th{background:#192f3c;color:#bbd0d9;font-size:10px;letter-spacing:.055em;
+ padding:13px 12px;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid #355869}
+.trade-history-table td{padding:13px 12px;white-space:nowrap;border-bottom:1px solid #2a4552;color:#edf6fa;font-variant-numeric:tabular-nums}
+.trade-history-table tbody tr:last-child td{border-bottom:0}
+.trade-history-table tbody tr:hover{background:#182e39}
+.trade-history-table .trade-history-empty{text-align:center;padding:22px 14px;color:#b8cdd7;white-space:normal}
+.trade-history-table .trade-history-up{color:#90e9b8;font-weight:750}
+.trade-history-table .trade-history-down{color:#ffb1b9;font-weight:750}
+.trade-history-table .trade-history-muted{color:#afc3ce}
+.trade-history-table td:last-child{max-width:260px;overflow:hidden;text-overflow:ellipsis}
+.trade-history-pagination{display:flex;justify-content:center;margin-top:15px}
+.trade-history-note{color:#a8c2ce;font-size:11px;line-height:1.6;margin:13px 0 0}
+@media(max-width:720px){
+ #view-demo>#demo-trade-history,#view-real>#real-trade-history{padding:15px 12px;border-radius:12px}
+ .trade-history-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .trade-history-actions button{font-size:12px;min-height:42px}
+ .trade-history-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .trade-history-stats>div{padding:12px 10px}
+ .trade-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

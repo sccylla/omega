@@ -56,7 +56,34 @@
 <div class="open-trades-source"><strong>FUTURES TRADER · VIRTUAL $1,500 ACCOUNT</strong><span id="demo-futures-open-status" role="status">Checking saved virtual positions…</span></div>
 <div class="open-trades-scroll"><table class="open-trades-table"><thead><tr><th>PAIR</th><th>LONG / SHORT</th><th>SIZE</th><th>ENTRY</th><th>CURRENT / EXIT QUOTE</th><th>UNREALIZED NET P&amp;L*</th><th>PROFIT / STOP</th><th>CLOSE</th></tr></thead><tbody id="demo-futures-open-rows"><tr><td colspan="7" class="open-trades-empty">Checking Demo Futures positions…</td></tr></tbody></table></div>
 <p class="muted open-trades-note">* Estimated, not realized. Prices must be fresh; unavailable quotes are shown as —, not treated as breakeven. These virtual positions do not exist on Bybit.</p>
-</section><div class="demo-warning"><span>ⓘ</span><div><strong>Demo only · No real orders.</strong><span>Simulated trades. Signed-in accounts sync across devices. Demo exits require an open browser; stops are not exchange-managed.</span></div></div><section class="panel seconds-lab" id="demo-seconds-lab" aria-label="Demo seconds scalping">
+</section>
+<section id="demo-trade-history" class="panel trade-history-panel" aria-labelledby="demo-history-title">
+ <div class="trade-history-header">
+  <div><span class="sub-heading">DEMO / CLOSED TRADES</span><h2 id="demo-history-title">Trade History</h2>
+   <p>Your recorded virtual Scalper and Futures Trader exits. Simulated results only; they are not real exchange fills.</p></div>
+  <div class="trade-history-actions"><button id="demo-history-refresh" type="button" class="btn subtle">Refresh History</button>
+   <button id="demo-history-export" type="button" class="btn subtle">Export CSV</button></div>
+ </div>
+ <div class="trade-history-filters">
+  <label>Bot <select id="demo-history-bot"><option value="all">Both bots</option><option value="Scalper">Scalper</option><option value="Futures Trader">Futures Trader</option></select></label>
+  <label>Period <select id="demo-history-period"><option value="all">All saved history</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
+  <label>Result <select id="demo-history-result"><option value="all">All results</option><option value="win">Profitable</option><option value="loss">Losing</option><option value="flat">Break-even</option></select></label>
+  <label>Find pair <input id="demo-history-search" type="search" placeholder="BTC, ETH, SOL..." maxlength="30"/></label>
+ </div>
+ <div class="trade-history-stats">
+  <div><small>CLOSED TRADES</small><strong id="demo-history-count">0</strong></div>
+  <div><small>WIN RATE</small><strong id="demo-history-win">—</strong></div>
+  <div><small>REALIZED VIRTUAL P&amp;L</small><strong id="demo-history-net">$0.00</strong></div>
+  <div><small>AVERAGE / TRADE</small><strong id="demo-history-average">—</strong></div>
+ </div>
+ <p id="demo-history-status" class="trade-history-status" role="status">Loading saved Demo trades…</p>
+ <div class="trade-history-scroll"><table class="trade-history-table">
+  <thead><tr><th>CLOSED (LOCAL)</th><th>BOT</th><th>PAIR</th><th>POSITION</th><th>NOTIONAL</th><th>ENTRY</th><th>EXIT</th><th>REALIZED P&amp;L</th><th>REASON</th></tr></thead>
+  <tbody id="demo-history-rows"><tr><td colspan="9" class="trade-history-empty">Reading your Demo ledger…</td></tr></tbody>
+ </table></div>
+ <p class="trade-history-note">Demo Scalper history is stored on this browser; Demo Futures history uses your synced account when available. Each ledger retains a limited number of closed trades. Older records that were not retained cannot be reconstructed. CSV includes only the currently filtered results.</p>
+</section>
+<div class="demo-warning"><span>ⓘ</span><div><strong>Demo only · No real orders.</strong><span>Simulated trades. Signed-in accounts sync across devices. Demo exits require an open browser; stops are not exchange-managed.</span></div></div><section class="panel seconds-lab" id="demo-seconds-lab" aria-label="Demo seconds scalping">
 <div class="live-parity-heading"><div><span class="sub-heading">DEMO / TOOL 1 OF 2 · AUTOMATIC MICRO TRADES</span><h2>Scalper · DEMO</h2><p class="muted">Scan up to 20 markets and automatically manage up to 10 distinct $100 virtual trades within an independent $1,500 practice wallet. The legacy $90-per-trade virtual test remains available below. Demo requires fresh quotes, matched trades, a 60-second baseline and risk checks before entering; the small-wallet $0.05 modeled net target applies. Signals use the same 50-level Bybit futures books, public trades and 5s / 15s / 30s move filters as the Real Account research scanner.</p></div><span class="neutral-tag" id="demo-seconds-mode">OFF · DEMO ONLY</span></div>
 <div class="seconds-demo-notice"><strong>No real orders.</strong> This is an independent $1,500 virtual test wallet inside Demo Account, not your real Bybit balance. Your older scalper history and standard Demo autopilot account are preserved separately. Results are stored on this device, not cloud-synced.</div>
 <div class="wf-metrics seconds-kpis">
@@ -116,7 +143,34 @@
 <p id="real-open-status" class="open-trades-timestamp" role="status">Connecting securely to Bybit…</p>
 <div class="open-trades-scroll"><table class="open-trades-table"><thead><tr><th>PAIR</th><th>LONG / SHORT</th><th>POSITION VALUE</th><th>ENTRY</th><th>MARK PRICE</th><th>UNREALIZED P&amp;L*</th><th>TP / SL</th><th>CLOSE</th></tr></thead><tbody id="real-open-rows"><tr><td colspan="7" class="open-trades-empty">Waiting for authenticated Bybit positions…</td></tr></tbody></table></div>
 <p class="muted open-trades-note">* Bybit-reported unrealized P&amp;L, not closed profit; fees and funding may change the final result. An order acknowledgement is not an open position. If no positions are open, the table says so explicitly.</p>
-</section><section class="live-preflight panel" aria-label="Live trading readiness">
+</section>
+<section id="real-trade-history" class="panel trade-history-panel" aria-labelledby="real-history-title">
+ <div class="trade-history-header">
+  <div><span class="sub-heading">REAL ACCOUNT / CLOSED BYBIT POSITIONS</span><h2 id="real-history-title">Trade History</h2>
+   <p>Actual Bybit-reported closed USDT perpetual positions. Includes trades made outside Omega; the exchange does not identify which Omega bot opened them.</p></div>
+  <div class="trade-history-actions"><button id="real-history-refresh" type="button" class="btn subtle">Refresh Bybit History</button>
+   <button id="real-history-export" type="button" class="btn subtle">Export CSV</button></div>
+ </div>
+ <div class="trade-history-filters">
+  <label>History window <select id="real-history-week"><option value="0">Last 7 days</option></select></label>
+  <label>Result <select id="real-history-result"><option value="all">All results</option><option value="win">Profitable</option><option value="loss">Losing</option><option value="flat">Break-even</option></select></label>
+  <label>Find pair <input id="real-history-search" type="search" placeholder="BTCUSDT..." maxlength="30"/></label>
+ </div>
+ <div class="trade-history-stats">
+  <div><small>LOADED CLOSED TRADES</small><strong id="real-history-count">—</strong></div>
+  <div><small>WIN RATE (LOADED)</small><strong id="real-history-win">—</strong></div>
+  <div><small>BYBIT CLOSED P&amp;L</small><strong id="real-history-net">—</strong></div>
+  <div><small>AVERAGE / CLOSE</small><strong id="real-history-average">—</strong></div>
+ </div>
+ <p id="real-history-status" class="trade-history-status" role="status">Sign into Omega to load your Bybit history…</p>
+ <div class="trade-history-scroll"><table class="trade-history-table">
+  <thead><tr><th>CLOSED (LOCAL)</th><th>SOURCE</th><th>PAIR</th><th>POSITION</th><th>NOTIONAL</th><th>ENTRY</th><th>EXIT</th><th>BYBIT CLOSED P&amp;L</th><th>REASON</th></tr></thead>
+  <tbody id="real-history-rows"><tr><td colspan="9" class="trade-history-empty">Waiting for authenticated Bybit history…</td></tr></tbody>
+ </table></div>
+ <div class="trade-history-pagination"><button type="button" id="real-history-next" class="btn subtle" hidden>Load more Bybit trades</button></div>
+ <p class="trade-history-note">Bybit permits 7-day requests. Choose older 7-day windows to browse earlier trades. Statistics and CSV cover only the records loaded for the selected window—not your entire account history. Reported closed P&amp;L may differ from final account cash movements after fees or funding.</p>
+</section>
+<section class="live-preflight panel" aria-label="Live trading readiness">
 <div class="live-parity-heading"><div><span class="sub-heading">REAL-MONEY READINESS</span><h2>Manual live trading readiness</h2><p class="muted">The exchange account is separate from your virtual account. No order is placed by these checks.</p></div><button class="btn subtle" id="live-check-readiness" type="button">Check live setup ↻</button></div>
 <div class="live-readiness-grid" id="live-readiness-grid" role="status"><div>Checking account and worker availability…</div></div>
 <p class="muted" id="live-readiness-summary">Manual order entry requires a signed-in session, current exchange data, qualifying signals, account limits, and an explicit per-trade confirmation.</p>
@@ -312,4 +366,4 @@
 <script defer src="/static/demo-scalp-intelligence.js"></script>
 <script defer src="/static/demo-seconds-lab.js"></script>
 <script defer src="/static/auto-v7.js"></script><script defer src="/static/seconds-lab.js"></script>
-<script defer src="/static/live-scalper.js"></script><link rel="stylesheet" href="/static/two-tools.css"/><script defer src="/static/two-tools.js"></script><script defer src="/static/open-trades.js"></script></body></html>
+<script defer src="/static/live-scalper.js"></script><link rel="stylesheet" href="/static/two-tools.css"/><script defer src="/static/two-tools.js"></script><script defer src="/static/open-trades.js"></script><link rel="stylesheet" href="/static/trade-history.css"/><script defer src="/static/trade-history.js"></script></body></html>
