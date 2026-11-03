@@ -113,7 +113,7 @@ async function submit(side){const sym=$('paper-symbol').value,notional=Number($(
 $('paper-buy').addEventListener('click',()=>submit('BUY'));
 $('paper-sell').addEventListener('click',()=>submit('SELL'));
 $('paper-refresh').addEventListener('click',()=>{paperStatus('Refreshing public prices…');quotesRefresh()});
-$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $100? All simulated positions and trade history on this device will be erased.'))return;window.OmegaAccount.transact(()=>E.initial()).then(()=>{window.dispatchEvent(new Event('omega:paper-reset'));paperStatus('Virtual balance reset to $100.')}).catch(e=>paperStatus(e.message));});
+$('paper-reset').addEventListener('click',()=>{if(!window.confirm('Reset your virtual portfolio to $1,500? All simulated positions and trade history for this account will be erased.'))return;window.OmegaAccount.transact(()=>E.initial()).then(()=>{window.dispatchEvent(new Event('omega:paper-reset'));paperStatus('Virtual balance reset to $1,500.')}).catch(e=>paperStatus(e.message));});
 window.addEventListener('omega:paper-updated',e=>{account=e.detail;render()});
 render();updateSelected();quotesRefresh();homeOpportunities();
 setInterval(()=>{if(!document.hidden&&['demo','overview'].includes(location.hash.slice(1)))quotesRefresh()},25000);

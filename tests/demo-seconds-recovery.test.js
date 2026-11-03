@@ -27,7 +27,7 @@ test('60s liquid pullback/reacceleration can result in an actual demo virtual OP
  assert.equal(wallet.ledger.open.symbol,SYMBOL);
  assert.equal(wallet.ledger.open.notional,90);
  assert.equal(wallet.closedTrades,0);
- assert.equal(wallet.cash,100);
+ assert.equal(wallet.cash,1500);
 });
 test('the scalper reconnect path cannot submit real orders, fabricate offline exits, or retry unbounded',()=>{
  const code=fs.readFileSync(path.resolve(__dirname,'../static/demo-seconds-lab.js'),'utf8');

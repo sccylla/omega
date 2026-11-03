@@ -36,13 +36,13 @@ test('unpriced open position is not silently displayed as verified equity',()=>{
   quotes:{[symbol]:quote(t)},connected:true});
  assert.equal(first.events[0].type,'OPEN');
  const missing=Wallet.stats(first.account,t+1000);
- assert.equal(missing.wallet,100);
+ assert.equal(missing.wallet,1500);
  assert.equal(missing.estimatedEquity,null);
  assert.equal(missing.openMarkPriced,false);
  const priced=Wallet.stats(first.account,t+1000,{[symbol]:quote(t+1000,100.19,100.21)});
  assert.equal(priced.openMarkPriced,true);
  assert.ok(priced.unrealizedNetUsd>0);
- assert.ok(priced.estimatedEquity>100);
+ assert.ok(priced.estimatedEquity>1500);
  const stale=Wallet.stats(first.account,t+5000,{[symbol]:quote(t+1000,100.19,100.21)});
  assert.equal(stale.estimatedEquity,null);
 });
@@ -50,6 +50,6 @@ test('marked equity includes modeled executable spread, taker fees and slippage'
  const entered=Wallet.step(Wallet.initial(t),{now:t,signals:[candidate()],
   quotes:{[symbol]:quote(t)},connected:true}).account;
  const marked=Wallet.stats(entered,t+1000,{[symbol]:quote(t+1000)});
- assert.ok(marked.estimatedEquity<100);
+ assert.ok(marked.estimatedEquity<1500);
  assert.ok(marked.unrealizedNetUsd<0);
 });

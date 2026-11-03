@@ -13,10 +13,10 @@ function open(account=Account.smallInitial(NOW),t=NOW+100){
  assert.equal(r.events[0].type,'OPEN');
  return r.account;
 }
-test('new account has precisely $88 virtual funds, 1x $8 sizing and small net exits',()=>{
+test('new account has precisely $1500 virtual funds, 1x $8 sizing and small net exits',()=>{
  const s=Account.smallInitial(NOW),v=Account.stats(s,NOW);
  assert.equal(s.version,Account.SMALL_VERSION);
- assert.equal(v.wallet,88);
+ assert.equal(v.wallet,1500);
  assert.equal(v.tradeNotional,8);
  assert.equal(v.targetNet,.05);
  assert.equal(v.stopNet,.08);
@@ -36,7 +36,7 @@ test('small account settles after estimated $0.05 net rather than legacy $0.50',
  assert.match(out.events[0].trade.reason,/\$0\.05 net TP/);
  assert.ok(out.events[0].trade.fees>0&&out.events[0].trade.slippage>0);
  assert.equal(Account.stats(out.account,t+1000).closedTrades,1);
- assert.ok(out.account.cash>88);
+ assert.ok(out.account.cash>1500);
 });
 test('small account retains protective -$0.08 stop and no forced 45-second time exit',()=>{
  const t=NOW+100,a=open(Account.smallInitial(NOW),t);
@@ -50,15 +50,15 @@ test('small account retains protective -$0.08 stop and no forced 45-second time 
 });
 test('a $1 closed daily loss prevents new positions but does not erase cash/history',()=>{
  const s=Account.smallInitial(NOW);
- const blocked={...s,cash:86.99,dayStartEquity:88};
+ const blocked={...s,cash:1498.99,dayStartEquity:1500};
  assert.equal(Account.eligibility(blocked,NOW).allowed,false);
  assert.match(Account.eligibility(blocked,NOW).reason,/daily loss limit/);
- assert.equal(Account.stats(blocked,NOW).wallet,86.99);
+ assert.equal(Account.stats(blocked,NOW).wallet,1498.99);
 });
-test('legacy $100 demo still runs identical $90 sizing and $0.50 net exits',()=>{
+test('legacy $1500 demo still runs identical $90 sizing and $0.50 net exits',()=>{
  const s=Account.initial(NOW),openLegacy=Account.step(s,{now:NOW+100,signals:[signal],
   quotes:{[S]:q(NOW+100,99.99,100.01,90)},connected:true});
- assert.equal(Account.stats(s,NOW).wallet,100);
+ assert.equal(Account.stats(s,NOW).wallet,1500);
  assert.equal(openLegacy.events[0].type,'OPEN');
  assert.equal(openLegacy.account.ledger.open.notional,90);
  assert.equal(openLegacy.account.ledger.open.targetNet,.50);
@@ -77,7 +77,7 @@ test('small $8 execution quote uses $0.05 target without changing default $90 re
  assert.ok(Number.isFinite(small.execution(S,NOW).requiredMoveBps)&&small.execution(S,NOW).requiredMoveBps>0);
  assert.equal(Engine.MIN_NOTIONAL,90);
 });
-test('UI defaults to independent $88 wallet and preserves access to older $100 virtual trade records',()=>{
+test('UI defaults to independent $1500 wallet and preserves access to older $100 virtual trade records',()=>{
  const root=path.resolve(__dirname,'..');
  const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
  const client=fs.readFileSync(path.join(root,'static/demo-seconds-lab.js'),'utf8');
@@ -114,5 +114,5 @@ test('full small-account book/trade pipeline can actually open one $8 virtual po
  assert.equal(opens,1);
  assert.equal(wallet.ledger.open.notional,8);
  assert.equal(wallet.ledger.open.targetNet,.05);
- assert.equal(wallet.cash,88);
+ assert.equal(wallet.cash,1500);
 });
