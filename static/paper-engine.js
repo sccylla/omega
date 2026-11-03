@@ -26,11 +26,11 @@
  }
  function markPnl(p,current){return (p.side==='BUY'?1:-1)*p.qty*(current-p.entry);}
  function equity(s,quotes){return s.cash+s.positions.reduce((acc,p)=>acc+markPnl(p,quotes?.[p.symbol]||p.entry),0);}
- function entryPreview(s,quotes,{symbol,side,notional,stopPct=1.5,targetPct=3},now=Date.now()){
+ function entryPreview(s,quotes,{symbol,side,notional,auto=false,stopPct=1.5,targetPct=3},now=Date.now()){
   const price=quotes?.[symbol];notional=Number(notional);
   if(!validSymbol(symbol)||!['BUY','SELL'].includes(side))throw Error('Choose a supported demo market and trade direction.');
   if(!Number.isFinite(price)||price<=0)throw Error('Market quote is unavailable. No demo order can be placed.');
-  if(!Number.isFinite(notional)||notional<(arguments[2].auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD))throw Error('Demo position must meet the $'+(arguments[2].auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD)+' minimum.');
+  if(!Number.isFinite(notional)||notional<(auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD))throw Error('Demo position must meet the $'+(auto?MIN_NOTIONAL_USD:MANUAL_MIN_NOTIONAL_USD)+' minimum.');
   if(!Number.isFinite(stopPct)||stopPct<=0||stopPct>10||!Number.isFinite(targetPct)||targetPct<=0||targetPct>50)throw Error('Invalid stop or profit target.');
   const eq=equity(s,quotes);
   if(s.positions.length>=MAX_POSITIONS)throw Error('10 demo position slots filled. Manage exits before opening another.');
