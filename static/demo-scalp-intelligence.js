@@ -1,9 +1,9 @@
 'use strict';
 // Demo-only loss audit and pre-entry safety veto. No AI profitability claims:
 // this is a conservative heuristic, with a rolling observed-trade circuit
-// breaker and a 3-second confirmation window. Never controls funded orders.
+// breaker and a two consecutive one-second confirmation observations. Never controls funded orders.
 (function(root,factory){const api=factory();if(typeof module!=='undefined'&&module.exports)module.exports=api;if(root)root.OmegaDemoScalpIntelligence=api})(typeof window!=='undefined'?window:null,function(){
- const MIN_CONFIRMATIONS=3,QUARANTINE_MS=45*60000,GLOBAL_PAUSE_MS=60*60000;
+ const MIN_CONFIRMATIONS=2,QUARANTINE_MS=45*60000,GLOBAL_PAUSE_MS=60*60000;
  const DIRECTION_PAUSE_MS=6*60*60000;
  const finite=Number.isFinite,round=(n,d=3)=>Number(n.toFixed(d));
  function audit(raw,now=Date.now()){
