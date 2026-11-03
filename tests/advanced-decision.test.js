@@ -176,11 +176,11 @@ test('when all conditions pass, wider spreads produce lower execution-quality ra
  else assert.ok(withCosts.blockers.length>0);
 });
 
-test('website small live decisions use $15 actual notional without reducing $90 legacy protections',()=>{
- const e=evidence(),small=decide(e,{now:NOW,mode:'live_small',notional:15});
- assert.equal(small.notional,15);
+test('website small live decisions use $100 actual notional without reducing $90 legacy protections',()=>{
+ const e=evidence(),small=decide(e,{now:NOW,mode:'live_small',notional:100});
+ assert.equal(small.notional,100);
  assert.equal(small.executionPolicy,'LIVE_STRICT');
- assert.ok(small.checks.some(x=>x.label==='Fixed $15 trade budget'&&x.pass));
+ assert.ok(small.checks.some(x=>x.label==='Fixed $100 trade budget'&&x.pass));
  assert.equal(decide(e,{now:NOW,mode:'live_small',notional:90}).eligible,false);
  const legacy=decide(e,{now:NOW,mode:'live'});
  assert.equal(legacy.notional,90);
