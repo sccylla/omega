@@ -39,10 +39,11 @@
   const committed=positions.reduce((sum,p)=>sum+p.notional,0);
   const policy=sizing(value);
   if(value.cash-committed+1e-8<policy.notional)return {allowed:false,reason:'Virtual uncommitted cash cannot fund another $'+policy.notional+' scalp'};
-  if((positions.length+1)*policy.stopNet>dailyCap(value,start)+Math.min(0,value.cash-start)+1e-8)
-   return {allowed:false,reason:'Portfolio modeled stops would exceed the remaining demo daily loss budget'};
   if(value.cash<=start-dailyCap(value,start)+1e-8)
    return {allowed:false,reason:'2% demo daily loss limit reached'};
+  if(value.version===SMALL_VERSION&&
+   (positions.length+1)*policy.stopNet>dailyCap(value,start)+Math.min(0,value.cash-start)+1e-8)
+   return {allowed:false,reason:'Portfolio modeled stops would exceed the remaining demo daily loss budget'};
   return {allowed:true,reason:'Eligible for $'+policy.notional+' virtual research entries'};
  }
  function step(raw,{now=Date.now(),signals=[],quotes={},connected=true}={}){
