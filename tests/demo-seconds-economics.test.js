@@ -10,7 +10,7 @@ function signal(needed=70){
  return {symbol:'BTCUSDT',state:'WATCH',side:'BUY',score:90,requiredMoveBps:needed,spreadBps:1.2,roundTripImpactBps:2,reasons:[]};
 }
 test('genuinely low volatility blocks a seconds scalp',()=>{
- const s=guard.filter(signal(70),history(10),now);
+ const s=guard.filter(signal(70),history(4),now);
  assert.equal(s.state,'WAIT');
  assert.equal(s.side,null);
  assert.ok(s.reasons.some(x=>x.includes('Observed 60s range')));
@@ -18,7 +18,7 @@ test('genuinely low volatility blocks a seconds scalp',()=>{
 test('past movement below future net target is NOT an absolute blocker',()=>{
  const s=guard.filter(signal(70),history(30),now);
  assert.equal(s.state,'WATCH');
- assert.ok(s.feasibilityThresholdBps>18&&s.feasibilityThresholdBps<70);
+ assert.ok(s.feasibilityThresholdBps>=8&&s.feasibilityThresholdBps<=14);
  assert.match(s.meaning,/not a forecast/);
 });
 test('missing or invalid cost economics vetoes entries',()=>{

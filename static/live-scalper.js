@@ -6,7 +6,7 @@
  const $=id=>document.getElementById(id);
  const start=$('seconds-trade-toggle'),input=$('seconds-confirm'),note=$('seconds-strict-status');
  if(!start||!input||!note)return;
- let armed=false,token=null,expires=0,latest=null,busy=false,lastAttempt=0,lastOrder=0;
+ let armed=false,token=null,expires=0,latest=null,busy=false,lastAttempt=0,lastOrder=0,lastHealth=null,lastIdleNotice=0;
  const phrase='START REAL $100 SCALPER';
  const waiting=s=>{note.textContent=s};
  function pause(message){
@@ -45,7 +45,15 @@
   const now=Date.now();
   if(now>expires){pause('One-hour real-money authorization expired. Type '+phrase+' to start again.');return}
   if(!window.OmegaSecondsScout?.active())return waiting('Real scalper armed but market data is stopped. Press Start scalp market scan.');
-  if(!latest||now-latest.at>2500||!['BUY','SELL'].includes(latest.side))return;
+  if(!latest||now-latest.at>2500||!['BUY','SELL'].includes(latest.side)){
+   if(lastHealth&&now-lastHealth.at<12000&&now-lastIdleNotice>12000){
+    lastIdleNotice=now;
+    waiting('REAL SCALPER ARMED, WAITING · '+lastHealth.feeds+'/'+lastHealth.total+
+     ' live market feeds · '+lastHealth.warming+' warming · '+
+     lastHealth.reason+'. A market WATCH is not permission to trade without strict live checks.');
+   }
+   return;
+  }
   if(now-lastAttempt<25000||now-lastOrder<45000)return;
   busy=true;lastAttempt=now;
   const sym=latest.symbol,side=latest.side;
@@ -73,6 +81,7 @@
  }
  start.addEventListener('click',toggle);
  window.addEventListener('omega:scalp-watch',e=>{latest=e.detail||null});
+ window.addEventListener('omega:scalp-health',e=>{lastHealth=e.detail||null});
  window.addEventListener('omega:manual-position-close',()=>{if(armed)pause('Paused for manual Bybit close. Restart Scalper explicitly.')});
 window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='futures'&&armed)pause('Paused Scalper because Futures Trader was armed. Only one real strategy can send entries.')});
  window.addEventListener('omega:account-mode',()=>{if(armed&&document.body.dataset.account!=='real')pause('Paused after leaving Real Account. Exchange orders may remain active.')});

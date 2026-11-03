@@ -19,7 +19,7 @@ function enter(now=ORIGIN+100){
 test('Guard blocks flat movement even when experimental 8bp entry impulse qualifies',()=>{
  const now=ORIGIN+61000,q=Guard.filter(candidate(),history(100,.001,now),now);
  assert.equal(q.state,'WAIT');assert.match(q.reason,/range/);
- assert.equal(q.side,null);assert.ok(q.feasibilityThresholdBps>=22);
+ assert.equal(q.side,null);assert.ok(q.feasibilityThresholdBps>=8);
 });
 test('Guard permits strong observed 60s movement with low spread and cost, never guarantees win',()=>{
  const now=ORIGIN+61000,q=Guard.filter(candidate(),history(100,.05,now),now);

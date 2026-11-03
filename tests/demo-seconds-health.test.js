@@ -45,7 +45,9 @@ test('demo client exposes per-pair market data health and protects real-money ex
  assert.match(client,/pairs with recent trade flow/);
  assert.match(client,/ENTRIES BLOCKED/);
  assert.match(client,/processing error/);
- assert.match(html,/BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT/);
+ assert.match(html,/BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT,ADAUSDT,AVAXUSDT,LINKUSDT,SUIUSDT/);
+ assert.match(client,/reportReadiness\(results,now\)/);
+ assert.match(html,/id="demo-scalper-readiness"/);
  assert.match(html,/up to 20, USDT perpetual/);
  assert.ok(html.includes('id="seconds-check"'));
  assert.ok(html.includes('id="demo-seconds-lab"'));

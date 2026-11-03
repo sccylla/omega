@@ -9,7 +9,7 @@ const NOTIONAL=100,GOAL_NET=.05,MAX_PAIRS=20,MAX_CAPTURE=12000;
 const button=$('seconds-toggle'),review=$('seconds-check'),status=text=>{$('seconds-status').textContent=text};
 const setMode=text=>{$('seconds-mode').textContent=text};
 const bps=v=>Number.isFinite(v)?v.toFixed(1)+' bp':'—';
-let ws=null,engine=null,active=false,epoch=0,lastConnect=0,lastData=0,latest=[],symbols=[],best=null;
+let ws=null,engine=null,active=false,epoch=0,lastConnect=0,lastData=0,latest=[],symbols=[],best=null,lastHealthNotice=0;
 const readCaptures=()=>{try{const x=JSON.parse(localStorage.getItem(TICK_KEY)||'[]');return Array.isArray(x)?
  x.slice(-MAX_CAPTURE).filter(r=>Array.isArray(r)&&r.length===12&&r.every((v,i)=>i===1||i===11?
  typeof v==='string':typeof v==='number'&&Number.isFinite(v))):[]}catch{return[]}};
@@ -62,7 +62,18 @@ function render(){
  const ranked=[...latest].sort((a,b)=>Number(b.state==='WATCH')-Number(a.state==='WATCH')||
   Number(b.score||0)-Number(a.score||0));
  best=ranked.find(x=>x.state==='WATCH')||null;
+ const feeds=latest.filter(o=>o.state!=='NO_DATA'&&o.state!=='UNKNOWN').length,
+  warming=latest.filter(o=>o.state==='WARMING').length,
+  top=ranked.find(o=>o.state!=='WATCH');
+ const health={at:now,feeds,total:symbols.length,warming,watch:!!best,
+  reason:top?.reason||'No market currently passes the seconds signal checks'};
+ window.dispatchEvent(new CustomEvent('omega:scalp-health',{detail:health}));
  window.dispatchEvent(new CustomEvent('omega:scalp-watch',{detail:best?{symbol:best.symbol,side:best.side,score:best.score,at:now}:null}));
+ if(!best&&now-lastHealthNotice>10000){
+  lastHealthNotice=now;
+  status('BYBIT SCALP SCAN · '+feeds+'/'+symbols.length+' fresh market feeds · '+warming+' warming · no eligible entries yet · '+
+   health.reason+'. $100 live trading additionally needs eligible account equity and strict server-side evidence.');
+ }
  review.disabled=!best;
  const rows=$('seconds-rows');rows.replaceChildren();
  for(const o of ranked){

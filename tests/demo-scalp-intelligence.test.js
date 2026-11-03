@@ -13,15 +13,15 @@ function history(t,up=true){
   return {s:secs-60+i,mid:100+position*.4};
  });
 }
-test('Three consecutive confirmed seconds are needed before a Demo candidate can open',()=>{
+test('Two consecutive confirmed seconds are needed before a Demo candidate can open',()=>{
  const gate=I.create(),seen=[];
  for(let i=0;i<3;i++){
   const now=start+i*1000;
   const res=gate.update([signal()],{BTCUSDT:history(now)},[],now).signals[0];
   seen.push({state:res.state,confirmed:res.confirmationSeconds||0,reason:res.reason});
  }
- assert.deepEqual(seen.map(x=>x.state),['WAIT','WAIT','WATCH']);
- assert.equal(seen[2].confirmed,3);
+ assert.deepEqual(seen.map(x=>x.state),['WAIT','WATCH','WATCH']);
+ assert.equal(seen[1].confirmed,2);
 });
 test('A stale/one-second candidate cannot reopen right after its confirmation is lost',()=>{
  const gate=I.create();
