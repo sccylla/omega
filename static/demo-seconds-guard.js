@@ -16,9 +16,11 @@
   // almost impossible and is not a statistically justified predictor.
   const needed=signal.requiredMoveBps;
   if(!Number.isFinite(needed)||needed<=0)reasons.push('Cannot establish after-cost net target requirements');
+  // Demo-only 8–14bp observed range screens out inactive markets without
+  // requiring a prior +$0.50-sized move. Strict live gates do not use this threshold.
   // Demand a real volatility opportunity without confusing an observed
   // historical range with the future $0.50 take-profit distance.
-  const threshold=Number.isFinite(needed)&&needed>0?Math.max(18,Math.min(30,needed*.35)):Infinity;
+  const threshold=Number.isFinite(needed)&&needed>0?Math.max(8,Math.min(14,needed*.13)):Infinity;
   if(!Number.isFinite(range)||range<threshold)reasons.push('Observed 60s range '+(Number.isFinite(range)?range.toFixed(1):'—')+' bp; require '+(Number.isFinite(threshold)?threshold.toFixed(1):'valid')+' bp of movement for entry screening (not the take-profit distance)');
   if(!Number.isFinite(signal.spreadBps)||signal.spreadBps>2.5)reasons.push('Spread too high for cost-sensitive Demo scalp');
   if(!Number.isFinite(signal.roundTripImpactBps)||signal.roundTripImpactBps>7)reasons.push('Book execution impact too expensive');
