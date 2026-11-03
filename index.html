@@ -59,13 +59,13 @@
 </section>
 <section id="demo-trade-history" class="panel trade-history-panel" aria-labelledby="demo-history-title">
  <div class="trade-history-header">
-  <div><span class="sub-heading">DEMO / CLOSED TRADES</span><h2 id="demo-history-title">Trade History</h2>
-   <p>Your recorded virtual Scalper and Futures Trader exits. Simulated results only; they are not real exchange fills.</p></div>
+  <div><span class="sub-heading">FUTURES TRADER / COMPLETED DEMO POSITIONS</span><h2 id="demo-history-title">Futures Trade History</h2>
+   <p>All retained closed futures positions from your virtual Futures Trader, including winning and losing exits, entry/exit prices, realized net P&amp;L and closure reasons. Choose Scalper to see its history separately.</p></div>
   <div class="trade-history-actions"><button id="demo-history-refresh" type="button" class="btn subtle">Refresh History</button>
    <button id="demo-history-export" type="button" class="btn subtle">Export CSV</button></div>
  </div>
  <div class="trade-history-filters">
-  <label>Bot <select id="demo-history-bot"><option value="all">Both bots</option><option value="Scalper">Scalper</option><option value="Futures Trader">Futures Trader</option></select></label>
+  <label>Trading tool <select id="demo-history-bot"><option value="Futures Trader" selected>Futures Trader</option><option value="Scalper">Scalper</option><option value="all">Both bots</option></select></label>
   <label>Period <select id="demo-history-period"><option value="all">All saved history</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select></label>
   <label>Result <select id="demo-history-result"><option value="all">All results</option><option value="win">Profitable</option><option value="loss">Losing</option><option value="flat">Break-even</option></select></label>
   <label>Find pair <input id="demo-history-search" type="search" placeholder="BTC, ETH, SOL..." maxlength="30"/></label>
@@ -115,6 +115,7 @@
 </section>
 <div class="paper-sync-bar"><span id="paper-sync-state" role="status">Checking account connection…</span><button id="paper-sync-refresh" type="button" class="btn subtle">Reconnect sync</button><button id="paper-import-local" type="button" class="btn subtle" hidden>Import this device’s previous demo</button></div><div class="demo-focused-panel" id="demo-auto-panel" role="region" aria-label="Demo Futures Trader"><section aria-label="Automatic demo market selection" class="panel omega-auto-card">
 <div class="auto-head"><div><span class="sub-heading">DEMO / TOOL 2 OF 2 · FUTURES</span><h2>Futures Trader · Long / Short <span class="auto-demo-tag">DEMO</span></h2><p>Demo entries require short-horizon trends, execution depth, derivatives and risk checks. Four-hour trend and historical results are advisory in demo only; live rules remain stricter. If no market qualifies, the bot waits rather than inventing a trade.</p></div><button class="btn primary" id="auto-toggle" type="button">Start Demo Futures Trader</button></div>
+<div class="futures-history-shortcut"><span><small>CLOSED FUTURES TRADES</small><strong id="demo-futures-closed-count">—</strong></span><span><small>RECORDED FUTURES NET</small><strong id="demo-futures-closed-pnl">—</strong></span><button type="button" class="btn subtle" id="demo-futures-history-open">View Futures Trade History</button></div>
 <div class="auto-metrics"><div><small>BOT STATUS</small><strong id="auto-state">OFF</strong></div><div><small>MARKETS IN SCAN</small><strong id="auto-universe">—</strong></div><div><small>SELECTED SETUP</small><strong id="auto-choice">No selection</strong></div><div><small>EXIT STRATEGY</small><strong>Net-cost target · stop</strong></div></div>
 <div class="auto-actions"><div class="fixed-budget">PER TRADE <b>$100</b><small>Up to 10 funded virtual positions · 1×</small></div><button class="btn subtle" id="auto-scan" type="button">Analyze only (no trades)</button><span id="auto-message" role="status">Paused. Start autopilot when you are ready.</span></div>
 <p id="auto-progress" class="auto-progress" role="status">No active scan. Completed results remain above during the next pass.</p>
@@ -146,8 +147,8 @@
 </section>
 <section id="real-trade-history" class="panel trade-history-panel" aria-labelledby="real-history-title">
  <div class="trade-history-header">
-  <div><span class="sub-heading">REAL ACCOUNT / CLOSED BYBIT POSITIONS</span><h2 id="real-history-title">Trade History</h2>
-   <p>Actual Bybit-reported closed USDT perpetual positions. Includes trades made outside Omega; the exchange does not identify which Omega bot opened them.</p></div>
+  <div><span class="sub-heading">REAL FUTURES / CLOSED BYBIT POSITIONS</span><h2 id="real-history-title">Futures Trade History</h2>
+   <p>Closed USDT perpetual futures positions recorded by your live Bybit account: long/short, entry/exit prices, position value, reported P&amp;L and close time. Includes trades outside Omega; attribution to this Futures Trader bot is not available from the exchange.</p></div>
   <div class="trade-history-actions"><button id="real-history-refresh" type="button" class="btn subtle">Refresh Bybit History</button>
    <button id="real-history-export" type="button" class="btn subtle">Export CSV</button></div>
  </div>
@@ -177,6 +178,7 @@
 </section>
 <section class="panel live-autopilot" aria-label="Automatic real trading" id="live-autopilot">
 <div class="live-parity-heading"><div><span class="sub-heading">REAL / TOOL 2 OF 2 · FUTURES TRADER</span><h2>Futures Trader · Long / Short <span class="auto-demo-tag">REAL</span></h2><p class="muted">Live entries require short-horizon trends, order-book execution depth, derivatives, and account risk checks. Four-hour trend and positive historical holdout evidence are mandatory in Real Account. If no market qualifies, the bot waits rather than inventing a trade. Estimated net goal $0.05 on a $100 order; no profit is guaranteed.</p></div><span id="live-auto-state" class="neutral-tag">OFF</span></div>
+<div class="futures-history-shortcut"><span><small>LOADED BYBIT FUTURES CLOSES</small><strong id="real-futures-closed-count">—</strong></span><span><small>REPORTED CLOSED P&amp;L</small><strong id="real-futures-closed-pnl">—</strong></span><button type="button" class="btn subtle" id="real-futures-history-open">View Futures Trade History</button></div>
 <div class="live-auto-stats"><div><small>MARKETS</small><strong id="live-auto-universe">—</strong></div><div><small>SELECTED SETUP</small><strong id="live-auto-choice">WAIT</strong></div><div><small>TRADE BUDGET</small><strong>$100</strong></div><div><small>OPEN LIVE POSITIONS</small><strong id="live-auto-positions">0 / 10</strong></div></div>
 <p id="live-auto-message" class="live-research-status" role="status">Not armed. Type the confirmation phrase and press Start to allow automatic real-money entries while this page remains open.</p>
 <div class="live-auto-start"><label for="live-auto-confirm">Type <strong>START REAL $100 AUTOPILOT</strong> to authorize browser-controlled real trades of approximately $100 each.</label><input id="live-auto-confirm" type="text" placeholder="START REAL $100 AUTOPILOT" autocomplete="off" spellcheck="false" /><button class="btn danger" id="live-auto-toggle" type="button">Start real autopilot</button><button class="btn subtle" id="live-auto-scan-only" type="button">Scan only · no orders</button></div>

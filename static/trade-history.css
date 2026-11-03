@@ -47,3 +47,19 @@
  .trade-history-stats>div{padding:12px 10px}
  .trade-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
+
+/* Contextual futures history summary directly inside each Futures bot */
+.futures-history-shortcut{
+ display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+ padding:13px 16px;margin:14px 0 18px;border:1px solid #356b68;
+ border-radius:12px;background:linear-gradient(100deg,#10342f,#132b3b)
+}
+.futures-history-shortcut>span{display:flex;flex-direction:column;gap:3px;min-width:115px}
+.futures-history-shortcut small{font-size:10px;letter-spacing:.04em;font-weight:700;color:#b0d6d0}
+.futures-history-shortcut strong{font-size:18px;font-variant-numeric:tabular-nums;color:#d5fff1}
+.futures-history-shortcut button{margin-left:auto;border:1px solid #4d8e7e;white-space:nowrap;min-height:40px}
+@media(max-width:720px){
+ .futures-history-shortcut{gap:12px;padding:12px}
+ .futures-history-shortcut>span{flex:1 1 100px}
+ .futures-history-shortcut button{margin-left:0;width:100%}
+}

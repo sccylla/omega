@@ -95,6 +95,19 @@
   const isReal=prefix==='real',isReady=!isReal||real.loaded;
   const rows=isReady?filtered(prefix):[],count=rows.length,
    total=rows.reduce((sum,r)=>sum+r.net,0),wins=rows.filter(r=>r.net>0).length;
+  // The Futures Trader summary is independent of a user choosing to view
+  // Scalper or combined records in the larger history table.
+  if(isReal){
+   text('real-futures-closed-count',real.loaded?String(real.rows.length):'—');
+   text('real-futures-closed-pnl',real.loaded?money(real.rows.reduce((sum,r)=>sum+r.net,0)):'—');
+  }else{
+   const futures=demo.rows.filter(r=>r.source==='Futures Trader');
+   text('demo-futures-closed-count',String(futures.length));
+   text('demo-futures-closed-pnl',money(futures.reduce((sum,r)=>sum+r.net,0)));
+   const bot=$('demo-history-bot')?.value||'Futures Trader';
+   text('demo-history-title',bot==='Futures Trader'?'Futures Trade History':
+    bot==='Scalper'?'Scalper Trade History':'All Closed Trade History');
+  }
   text(prefix+'-history-count',isReady?String(count):'—');
   text(prefix+'-history-win',!isReady||!count?'—':(100*wins/count).toFixed(1)+'%');
   text(prefix+'-history-net',isReady?money(total):'—');
@@ -200,6 +213,18 @@
   option.textContent=(w*7)+'–'+((w+1)*7)+' days ago';
   $('real-history-week').append(option);
  }
+ // Dedicated history shortcut is next to each Futures Trader's Start
+ // controls. It selects the correct real or virtual ledger and never trades.
+ $('demo-history-bot').value='Futures Trader';
+ $('demo-futures-history-open').addEventListener('click',()=>{
+  $('demo-history-bot').value='Futures Trader';
+  readDemo();
+  $('demo-trade-history').scrollIntoView?.({behavior:'smooth',block:'start'});
+ });
+ $('real-futures-history-open').addEventListener('click',()=>{
+  $('real-trade-history').scrollIntoView?.({behavior:'smooth',block:'start'});
+  if(!real.loaded)refreshReal();
+ });
  $('real-history-week').addEventListener('change',()=>{
   real.weeksAgo=Number($('real-history-week').value);
   real.rows=[];real.loaded=false;real.nextCursor='';real.anchor=null;real.rejected=0;
