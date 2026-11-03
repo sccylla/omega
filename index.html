@@ -103,8 +103,9 @@
 <option value="small" selected>$1,500 practice wallet · up to 10 trades at $100 each · +$0.50 modeled net goal</option>
 
 </select>
-<label for="demo-seconds-pairs">Choose up to 20 pairs</label><input id="demo-seconds-pairs" type="text" value="BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT" autocomplete="off" spellcheck="false" placeholder="BTCUSDT,ETHUSDT,SOLUSDT"/>
+<label for="demo-seconds-pairs">Choose up to 20 pairs</label><input id="demo-seconds-pairs" type="text" value="BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT,ADAUSDT,AVAXUSDT,LINKUSDT,SUIUSDT" autocomplete="off" spellcheck="false" placeholder="BTCUSDT,ETHUSDT,SOLUSDT"/>
 <button class="btn primary" id="demo-seconds-start" type="button">Start Demo Seconds Scalper</button><button class="btn subtle" id="demo-seconds-export" type="button">Export trade results</button><button class="btn subtle" id="demo-seconds-reset" type="button">Reset seconds wallet</button></div>
+<p class="scalper-readiness" id="demo-scalper-readiness" role="status">SCALPER DIAGNOSTICS: Start to connect to live public Bybit books and trade feeds. Automatic Demo entries require fresh data and qualifying setups; no entry is guaranteed.</p>
 <p class="wf-message" id="demo-seconds-status" role="status">Ready to check Bybit public prices for the $1,500 practice profile. The scanner reports order-book and trade health, warm-up, and risk blockers. A qualifying setup is not guaranteed.</p>
 <div class="seconds-visual"><div><small id="demo-seconds-chart-name">Live 1-second price observations — waiting for data</small><svg id="demo-seconds-chart" role="img" aria-label="Seconds Demo live price chart" viewBox="0 0 600 115" preserveAspectRatio="none"><path id="demo-seconds-line" d="" fill="none" stroke="#7de5c2" stroke-width="2" vector-effect="non-scaling-stroke"/></svg></div></div>
 <div class="table-wrap"><table class="seconds-table"><thead><tr><th>PAIR</th><th>5s</th><th>15s</th><th>30s RANGE</th><th>SPREAD</th><th>NET TARGET MOVE</th><th>ORDER FLOW</th><th>DECISION</th></tr></thead><tbody id="demo-seconds-rows"><tr><td colspan="8">Press Start to begin collecting live seconds-level data.</td></tr></tbody></table></div>
@@ -193,7 +194,7 @@
 </section>
 <section class="panel seconds-lab" id="seconds-lab" aria-label="Seconds-scale volatility research">
 <div class="live-parity-heading"><div><span class="sub-heading">REAL / TOOL 1 OF 2 · SECONDS SCALPER</span><h2>Scalper · REAL automated entries</h2><p class="muted">Monitor live Bybit matched trades and 50-level order-book updates across up to 20 pairs. Scans exchange microstructure, checks spread, order flow and liquidity, then independently revalidates short-horizon and multi-timeframe rules before any $100 real entry. Bybit manages the attached profit target and stop-loss. No trade is guaranteed to profit.</p></div><span class="neutral-tag" id="seconds-mode">OFFLINE · RESEARCH ONLY</span></div>
-<div class="seconds-controls"><label for="seconds-pairs">Pairs (up to 20, USDT perpetual)</label><input id="seconds-pairs" type="text" value="BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT" autocomplete="off" spellcheck="false" placeholder="BTCUSDT,ETHUSDT,SOLUSDT"/>
+<div class="seconds-controls"><label for="seconds-pairs">Pairs (up to 20, USDT perpetual)</label><input id="seconds-pairs" type="text" value="BTCUSDT,ETHUSDT,SOLUSDT,XRPUSDT,DOGEUSDT,BNBUSDT,ADAUSDT,AVAXUSDT,LINKUSDT,SUIUSDT" autocomplete="off" spellcheck="false" placeholder="BTCUSDT,ETHUSDT,SOLUSDT"/>
 <button id="seconds-toggle" type="button" class="btn subtle">Start scalp market scan</button>
 <label class="real-scalp-confirm" for="seconds-confirm">To allow automatic funded scalps, type <strong>START REAL $100 SCALPER</strong></label>
 <input id="seconds-confirm" autocomplete="off" spellcheck="false" placeholder="START REAL $100 SCALPER" />
