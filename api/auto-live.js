@@ -8,7 +8,7 @@ const {collectEvidence}=require('../lib/market-evidence');
 const {decide}=require('../lib/advanced-decision');
 const portfolio=require('../lib/live-portfolio');
 const ScalpEvidence=require('../lib/scalp-evidence');
-const AUTO_TRADE_USD=15,AUTO_MAX_TRADE_USD=16,AUTO_MIN_EQUITY_USD=75,AUTO_NET_GOAL_USD=.05;
+const AUTO_TRADE_USD=100,AUTO_MAX_TRADE_USD=102,AUTO_MIN_EQUITY_USD=500,AUTO_NET_GOAL_USD=.05;
 const {MAX_EXPOSURE_FRACTION}=require('../lib/live-policy');
 const SYMBOL=/^[A-Z0-9]{2,24}USDT$/,MAX_SESSION_MS=60*60*1000;
 const error=(status,message)=>Object.assign(new Error(message),{status});
@@ -17,7 +17,7 @@ function issueArm(req,env,authenticator,now=Date.now(),purpose='futures'){
  if(!['futures','scalper'].includes(purpose))throw error(400,'Invalid real-trading strategy');
  const cookie=authenticator.getCookie(req);
  if(typeof env.OMEGA_SESSION_SECRET!=='string'||env.OMEGA_SESSION_SECRET.length<32||!cookie)throw error(503,'Secure authenticated trading session unavailable');
- const payload=Buffer.from(JSON.stringify({version:3,purpose,tradeUsd:AUTO_TRADE_USD,session:hmac(cookie,env).slice(0,32),issuedAt:now,expiresAt:now+MAX_SESSION_MS,nonce:crypto.randomBytes(16).toString('hex')})).toString('base64url');
+ const payload=Buffer.from(JSON.stringify({version:4,purpose,tradeUsd:AUTO_TRADE_USD,session:hmac(cookie,env).slice(0,32),issuedAt:now,expiresAt:now+MAX_SESSION_MS,nonce:crypto.randomBytes(16).toString('hex')})).toString('base64url');
  return payload+'.'+hmac('omega-live-arm:'+payload,env);
 }
 function verifyArm(req,token,env,authenticator,now=Date.now()){
@@ -28,7 +28,7 @@ function verifyArm(req,token,env,authenticator,now=Date.now()){
  const expected=hmac('omega-live-arm:'+payload,env);
  if(!crypto.timingSafeEqual(Buffer.from(digest,'hex'),Buffer.from(expected,'hex')))throw error(403,'Trading authorization signature invalid');
  let value;try{value=JSON.parse(Buffer.from(payload,'base64url').toString())}catch{throw error(403,'Invalid trading authorization')}
- if(value.version!==3||!['futures','scalper'].includes(value.purpose)||value.tradeUsd!==AUTO_TRADE_USD||!Number.isSafeInteger(value.issuedAt)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=now||value.issuedAt>now||value.expiresAt-value.issuedAt!==MAX_SESSION_MS||value.session!==hmac(cookie,env).slice(0,32))throw error(403,'Trading authorization expired or belongs to another session');
+ if(value.version!==4||!['futures','scalper'].includes(value.purpose)||value.tradeUsd!==AUTO_TRADE_USD||!Number.isSafeInteger(value.issuedAt)||!Number.isSafeInteger(value.expiresAt)||value.expiresAt<=now||value.issuedAt>now||value.expiresAt-value.issuedAt!==MAX_SESSION_MS||value.session!==hmac(cookie,env).slice(0,32))throw error(403,'Trading authorization expired or belongs to another session');
  return value;
 }
 function guardAccount(snapshot,options={}){
@@ -48,9 +48,9 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
    if(!req.body||JSON.stringify(req.body).length>2500)throw error(400,'Invalid trading request');
    if(!enabled()||!broker.ready())throw error(503,'Browser-controlled live trading is not enabled or credentials are missing');
    if(req.body.action==='arm'){
-    const purpose=req.body.confirm==='START REAL $15 SCALPER'?'scalper':
-     req.body.confirm==='START REAL $15 AUTOPILOT'?'futures':null;
-    if(!purpose)throw error(400,'Confirm START REAL $15 AUTOPILOT or START REAL $15 SCALPER');
+    const purpose=req.body.confirm==='START REAL $100 SCALPER'?'scalper':
+     req.body.confirm==='START REAL $100 AUTOPILOT'?'futures':null;
+    if(!purpose)throw error(400,'Confirm START REAL $100 AUTOPILOT or START REAL $100 SCALPER');
     guardAccount(await broker.snapshot());
     return res.status(200).json({armed:true,purpose,token:issueArm(req,env,authentication,clock(),purpose),expiresInMinutes:60,message:'Browser-armed only. No order has been placed. Exchange-managed TP/SL are requested for each eligible entry.'});
    }
