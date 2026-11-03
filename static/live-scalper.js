@@ -73,7 +73,8 @@
  }
  start.addEventListener('click',toggle);
  window.addEventListener('omega:scalp-watch',e=>{latest=e.detail||null});
- window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='futures'&&armed)pause('Paused Scalper because Futures Trader was armed. Only one real strategy can send entries.')});
+ window.addEventListener('omega:manual-position-close',()=>{if(armed)pause('Paused for manual Bybit close. Restart Scalper explicitly.')});
+window.addEventListener('omega:strategy-armed',e=>{if(e.detail==='futures'&&armed)pause('Paused Scalper because Futures Trader was armed. Only one real strategy can send entries.')});
  window.addEventListener('omega:account-mode',()=>{if(armed&&document.body.dataset.account!=='real')pause('Paused after leaving Real Account. Exchange orders may remain active.')});
  document.addEventListener('visibilitychange',()=>{if(armed&&document.hidden)pause('Scalper paused when tab became hidden. Exchange TP/SL remain active.')});
  window.addEventListener('beforeunload',()=>{armed=false;token=null});
