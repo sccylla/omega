@@ -5,7 +5,7 @@ if(!E||!$('seconds-toggle'))return;
 // REAL ACCOUNT ONLY market-data scout. This component NEVER creates broker
 // orders. Browser Real Autopilot independently validates every funded entry.
 const TICK_KEY='omega_seconds_1s_capture_v1',SOCKET='wss://stream.bybit.com/v5/public/linear';
-const NOTIONAL=15,GOAL_NET=.05,MAX_PAIRS=20,MAX_CAPTURE=12000;
+const NOTIONAL=100,GOAL_NET=.05,MAX_PAIRS=20,MAX_CAPTURE=12000;
 const button=$('seconds-toggle'),review=$('seconds-check'),status=text=>{$('seconds-status').textContent=text};
 const setMode=text=>{$('seconds-mode').textContent=text};
 const bps=v=>Number.isFinite(v)?v.toFixed(1)+' bp':'—';
