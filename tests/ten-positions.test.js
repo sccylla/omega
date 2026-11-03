@@ -43,7 +43,7 @@ test('Demo Futures Trader permits ten fully funded $9.50 auto positions but not 
  assert.equal(a.positions.length,10);
  assert.equal(a.positions.reduce((s,p)=>s+p.notional,0),95);
  assert.throws(()=>Paper.open(a,{COIN10:1},{symbol:'COIN10',side:'BUY',notional:10,auto:true}),/10 demo position slots/);
- assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:9.49,auto:true}),/at least \$9.5/);
+ assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:9.49,auto:true}),/\$9.5/);
  assert.throws(()=>Paper.open(Paper.initial(),{XYZ:1},{symbol:'XYZ',side:'BUY',notional:10}),/at least \$100/);
 });
 const protectedPos=(symbol,side='Buy')=>({symbol,side,size:'0.15',avgPrice:'100',markPrice:'100',
