@@ -10,8 +10,8 @@ body{background:#08111a}
 #view-demo>.home-title,#view-real>.home-title{margin-top:16px;margin-bottom:14px}
 #view-demo>.home-title .reset-button{display:none!important}
 #view-demo>.demo-warning,#view-demo>.paper-sync-bar,#view-demo>#demo-manual-panel{display:none!important}
-#view-demo> :not(.home-title):not(.demo-summary):not(#demo-seconds-lab):not(#demo-auto-panel){display:none!important}
-#view-real> :not(.home-title):not(.real-banner):not(.real-balance-grid):not(#live-autopilot):not(#seconds-lab){display:none!important}
+#view-demo> :not(.home-title):not(.demo-summary):not(#demo-open-trades):not(#demo-seconds-lab):not(#demo-auto-panel){display:none!important}
+#view-real> :not(.home-title):not(.real-banner):not(.real-balance-grid):not(#real-open-trades):not(#live-autopilot):not(#seconds-lab){display:none!important}
 #view-real>#seconds-lab{margin-top:16px}
 #view-demo>#demo-seconds-lab,#view-demo>#demo-auto-panel,#view-real>#live-autopilot,#view-real>#seconds-lab{
  display:block!important;visibility:visible!important;max-width:none;border:1px solid #2a4854;
@@ -46,4 +46,42 @@ body{background:#08111a}
  #view-real>#live-autopilot,#view-real>#seconds-lab{padding:16px;border-radius:12px}
  .seconds-controls,.live-auto-start{flex-direction:column;align-items:stretch}
  #view-real #seconds-confirm,#view-real #seconds-trade-toggle{width:100%}
+}
+
+/* Dedicated open-position monitor: kept visible in both account modes. */
+#view-demo>#demo-open-trades,#view-real>#real-open-trades{
+ display:block!important;visibility:visible!important;
+ border:1px solid #39887f;border-radius:18px;padding:22px;margin:20px 0 26px;
+ background:linear-gradient(135deg,#132e35,#111e2e 70%);
+ box-shadow:0 8px 28px rgba(0,0,0,.12)
+}
+.open-trades-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.open-trades-head h2{font-size:clamp(21px,2.5vw,27px);margin:4px 0 7px}
+.open-trades-head p{color:#b6cbd4;font-size:13px;max-width:760px;line-height:1.55;margin:0}
+.open-trades-head button{white-space:nowrap}
+.open-trades-counter{display:inline-block;vertical-align:middle;margin-left:8px;padding:3px 12px;border-radius:999px;
+ background:#16493f;border:1px solid #397c6a;color:#bdffe1;font-size:14px;font-weight:700}
+.open-trades-source{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+ margin:17px 0 9px;font-size:12px}
+.open-trades-source strong{letter-spacing:.055em;color:#d8f6e7}
+.open-trades-source span,.open-trades-timestamp{font-size:12px;color:#a5c0cb}
+.open-trades-timestamp{margin:0 0 12px}
+.open-trades-scroll{max-width:100%;overflow-x:auto;border-radius:10px;border:1px solid #2a4955}
+.open-trades-table{width:100%;min-width:790px;border-collapse:collapse;text-align:left;font-size:12px}
+.open-trades-table th{background:#162d3b;color:#b0c7d1;font-size:10px;letter-spacing:.055em;
+ white-space:nowrap;padding:13px 12px;border-bottom:1px solid #315264}
+.open-trades-table td{padding:13px 12px;color:#f1f7fb;border-bottom:1px solid #2a414d;white-space:nowrap}
+.open-trades-table tr:last-child td{border-bottom:none}
+.open-trades-table .open-trades-empty{color:#bbd1db;font-size:13px;padding:20px 12px;text-align:center;white-space:normal}
+.open-trades-table .open-trades-long{color:#86f3ba;font-weight:700}
+.open-trades-table .open-trades-short{color:#ffb0b8;font-weight:700}
+.open-trades-table .open-trades-positive{color:#8cf7bd;font-weight:700}
+.open-trades-table .open-trades-negative{color:#ffafb6;font-weight:700}
+.open-trades-table .open-trades-unavailable{color:#a5b8c5}
+.open-trades-table .open-trades-warning{color:#ffcf96}
+.open-trades-note{font-size:11px;margin:12px 0 0!important;line-height:1.55}
+@media(max-width:700px){
+ #view-demo>#demo-open-trades,#view-real>#real-open-trades{padding:15px 12px;margin:14px 0 22px}
+ .open-trades-head button{width:100%}
+ .open-trades-table th,.open-trades-table td{padding:11px 10px}
 }
