@@ -57,6 +57,54 @@
   }
   return {state:s,events};
  }
+ // Multi-position paper ledger. The original single-position step remains for
+ // historical tests. More than one open virtual trade is never marked as a
+ // winning closed trade when the feed stops or the browser reloads.
+ function openList(s){return [s.open,...(Array.isArray(s.moreOpen)?s.moreOpen:[])].filter(Boolean)}
+ function stepMany(raw,{maxPositions=10,budgetUsd=88,...args}={}){
+  if(!Number.isInteger(maxPositions)||maxPositions<1||maxPositions>10||
+    !Number.isFinite(budgetUsd)||budgetUsd<0)throw Error('Invalid multi-position demo risk budget');
+  const s=restore(raw),events=[],active=[],prior=openList(s);
+  let lastClose=s.lastClose;
+  for(const p of prior){
+   const trial=step({version:VERSION,closed:[],incomplete:0,open:p,lastClose:s.lastClose},
+    {...args,signals:[]});
+   for(const e of trial.events)events.push(e);
+   if(trial.state.open)active.push(trial.state.open);
+   s.closed.push(...trial.state.closed);
+   s.incomplete+=trial.state.incomplete;
+   lastClose=Math.max(lastClose,trial.state.lastClose);
+  }
+  // Select highest-quality new markets, subject to distinct-symbol and
+  // fully backed notional capacity. Never invent an exit/fill to make room.
+  const qty=Number(args.notional);
+  if(!Number.isFinite(qty)||qty<=0)throw Error('Invalid demo scalp trade size');
+  let allocated=active.reduce((sum,p)=>sum+p.notional,0);
+  const seen=new Set(active.map(p=>p.symbol));
+  const ranked=(args.signals||[]).filter(p=>p?.state==='WATCH'&&
+    ['BUY','SELL'].includes(p.side)&&Number.isFinite(p.score)).sort((a,b)=>b.score-a.score);
+  if(args.connected!==false){
+   for(const sig of ranked){
+    if(active.length>=maxPositions||allocated+qty>budgetUsd+1e-8)break;
+    if(seen.has(sig.symbol))continue;
+    const opened=step({version:VERSION,closed:[],incomplete:0,open:null,lastClose:s.lastClose},
+     {...args,signals:[sig],cooldownMs:3000});
+    if(!opened.state.open)continue;
+    active.push(opened.state.open);seen.add(sig.symbol);allocated+=qty;
+    for(const e of opened.events)events.push(e);
+   }
+  }
+  s.open=active[0]||null;
+  s.moreOpen=active.slice(1);
+  s.closed=s.closed.slice(-MAX_RECORDS);
+  s.lastClose=lastClose;
+  return {state:s,events};
+ }
+ function interruptMany(raw){
+  const s=restore(raw),count=openList(s).length;
+  if(count){s.open=null;s.moreOpen=[];s.incomplete+=count;s.lastClose=Date.now()}
+  return s;
+ }
  function stats(raw){
   const s=restore(raw),completed=s.closed;
   let net=0,peak=0,maxDrawdown=0,wins=0,loss=0,gains=0;
@@ -70,5 +118,5 @@
    last:completed.at(-1)||null,validated:false,reason:'Simulated top-50 book VWAP, assumed fees/slippage and a live browser connection. Not independently audited real fills.'};
  }
  function interrupt(raw){const s=restore(raw);if(s.open){s.open=null;s.incomplete++;s.lastClose=Date.now()}return s}
- return {init,restore,step,stats,interrupt,pnl};
+ return {init,restore,step,stepMany,openList,interruptMany,stats,interrupt,pnl};
 });
