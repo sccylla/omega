@@ -41,7 +41,7 @@ test('Bybit time windows are seven days each, bounded, and historical response i
   cursor:response.nextCursor,fetchClosed});
  assert.equal(second.windowEnd,NOW);
  assert.equal(captured.query.cursor,'page2%3A123');
- assert.throws(()=>bybitHistory({weeksAgo:0,cursor:'page2',now:NOW,fetchClosed}),/History page expired/);
+ await assert.rejects(bybitHistory({weeksAgo:0,cursor:'page2',now:NOW,fetchClosed}),/History page expired/);
 });
 test('Bybit malformed pages fail closed, and invalid rows are never counted as trade outcomes',async()=>{
  const r=await bybitHistory({now:NOW,fetchClosed:async()=>({
