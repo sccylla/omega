@@ -58,7 +58,7 @@
    s.openCount+'/'+s.maxOpenPositions+' OPEN · '+s.openPositions.map(p=>p.side+' '+p.symbol).join(', ')+
    ' · '+(Number.isFinite(s.unrealizedNetUsd)?'estimated unrealized '+money(s.unrealizedNetUsd):'waiting for fresh executable quotes'):
    '0/'+s.maxOpenPositions+' open · Waiting for qualifying virtual markets';
-  $('demo-seconds-risk').textContent=(s.entryBlock?'ENTRY BLOCK: '+s.entryBlock+' · ':'')+'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · $'+s.tradeNotional+' position · +'+money(s.targetNet)+' target / −'+money(s.stopNet)+' modeled stop · 1 position';
+  $('demo-seconds-risk').textContent=(s.entryBlock?'ENTRY BLOCK: '+s.entryBlock+' · ':'')+'Virtual daily max loss '+money(s.dailyMaxLossUsd)+' · $'+s.tradeNotional+' position · +'+money(s.targetNet)+' target / −'+money(s.stopNet)+' modeled stop · up to '+s.maxOpenPositions+' positions';
   const body=$('demo-seconds-history');body.replaceChildren();
   const recent=[...wallet.ledger.closed].reverse().slice(0,10);
   if(!recent.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='No completed seconds trades yet.';tr.append(td);body.append(tr)}
@@ -82,7 +82,9 @@
   socket=null;engine=null;
   if(H.openList(wallet.ledger).length){wallet=A.interrupt(wallet);try{localStorage.setItem(walletKey,JSON.stringify(wallet))}catch{}}
   button.textContent='Start Demo Seconds Scalper';mode('OFF · DEMO ONLY');
-  setStatus(reason||'Seconds Demo paused. No real-money orders are involved.');renderAccount();
+  setStatus(reason||'Seconds Demo paused. No real-money orders are involved.');
+  const readiness=$('demo-scalper-readiness');if(readiness)readiness.textContent='SCALPER PAUSED · '+(reason||'Click Start to scan markets.')+' · No funded orders.';
+  renderAccount();
  }
  function recover(reason,id=epoch){
   if(!active||id!==epoch||retryTimer)return;
@@ -100,6 +102,7 @@
   try{engine=E.create(symbols,{maxSymbols:20,notional:wallet.version===A.SMALL_VERSION?A.SMALL_TRADE_USD:A.TRADE_USD,goalNet:wallet.version===A.SMALL_VERSION?A.SMALL_TARGET_NET:.50})}catch(e){halt('Unable to restart market research: '+e.message);return}
   const delay=Math.min(30000,2000*Math.pow(2,retryCount-1));
   mode('RECONNECTING · DEMO ONLY');
+  const readiness=$('demo-scalper-readiness');if(readiness)readiness.textContent='SCALPER MARKET FEED DISCONNECTED · '+reason+' · Retry '+retryCount+'/6. No virtual fills fabricated.';
   setStatus(reason+' · automatically retrying public prices in '+Math.round(delay/1000)+'s (attempt '+retryCount+'/6). Virtual trades are not assumed to have closed profitably.');
   renderAccount();
   retryTimer=setTimeout(()=>{
@@ -130,6 +133,27 @@
    body.append(tr)
   }
  }
+ function reportReadiness(results,now){
+  const node=$('demo-scalper-readiness');if(!node)return;
+  const total=results.length,watch=results.filter(r=>r.state==='WATCH').length;
+  const feed=results.filter(r=>r.state!=='NO_DATA'&&r.state!=='UNKNOWN').length;
+  const warming=results.filter(r=>r.state==='WARMING').length;
+  const risk=A.stats(wallet,now).entryBlock;
+  const blockers=new Map();
+  for(const r of results)if(r.state!=='WATCH'){
+   const why=String(r.reason||'Waiting for qualifying short-term market evidence').slice(0,135);
+   blockers.set(why,(blockers.get(why)||0)+1)
+  }
+  const most=[...blockers.entries()].sort((a,b)=>b[1]-a[1])[0];
+  const headline=!active?'PAUSED':risk?'ACCOUNT RISK GATE':
+   watch?'QUALIFIED DEMO MARKET FOUND':feed===0?'WAITING FOR BYBIT BOOK DATA':
+   warming===total?'WARMING UP':'SCANNING — NO QUALIFIED ENTRY';
+  node.textContent='SCALPER '+headline+' · '+feed+'/'+total+' markets with data · '+
+   warming+' warming · '+watch+' passing all filters'+
+   (risk?' · ENTRY BLOCK: '+risk:'')+
+   (most?' · Leading reason '+most[1]+'/'+total+': '+most[0]:'')+
+   '. Minimum two successive qualifying seconds. A WAIT does not mean an order was placed.';
+ }
  function tick(){
   if(!active||document.hidden||document.body.dataset.account!=='demo'||!engine)return;
   if(!socket||socket.readyState!==WebSocket.OPEN){
@@ -157,7 +181,7 @@
     else setStatus('Price feed lost during a trade. Marked incomplete, not counted as profit.');
    }
   }else wallet=out.account;
-  drawRows(results);chart(results);renderAccount();
+  drawRows(results);chart(results);renderAccount();reportReadiness(results,now);
   if(now-lastDiagnostic>=9000&&!out.events.length){
    lastDiagnostic=now;
    const ready=results.filter(x=>x.state!=='NO_DATA'&&x.state!=='WARMING'),qualified=results.filter(x=>x.state==='WATCH');
@@ -211,7 +235,9 @@
   if(document.hidden||document.body.dataset.account!=='demo')return setStatus('Switch to Demo Account and keep the tab visible.');
   try{symbols=E.validSymbols($('demo-seconds-pairs').value,{maxSymbols:20});engine=E.create(symbols,{maxSymbols:20,notional:wallet.version===A.SMALL_VERSION?A.SMALL_TRADE_USD:A.TRADE_USD,goalNet:wallet.version===A.SMALL_VERSION?A.SMALL_TARGET_NET:.50})}catch(e){setStatus(e.message);return}
   const check=A.eligibility(wallet);if(!check.allowed){setStatus(check.reason);return}
-  active=true;retryCount=0;lastFeedUpdate=0;button.textContent='Pause Demo Seconds Scalper';const id=++epoch;connect(id);
+  active=true;retryCount=0;lastFeedUpdate=0;button.textContent='Pause Demo Seconds Scalper';
+  const readiness=$('demo-scalper-readiness');if(readiness)readiness.textContent='SCALPER CONNECTING · '+symbols.length+' pairs · 60-second evidence baseline required before entering the first virtual trade.';
+  const id=++epoch;connect(id);
  }
  button.addEventListener('click',toggle);
  $('demo-seconds-profile').addEventListener('change',()=>{
