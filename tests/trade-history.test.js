@@ -108,13 +108,22 @@ async function runUI(mode='demo',bybitPayload=null){
 }
 test('Demo history combines recorded Scalper and Futures closes, filters wins, and calculates observed P&L',async()=>{
  const {el}=await runUI();
+ assert.equal(el('demo-history-bot').value,'Futures Trader');
+ assert.equal(el('demo-history-title').textContent,'Futures Trade History');
+ assert.equal(el('demo-history-rows').children.length,1);
+ assert.equal(el('demo-history-count').textContent,'1');
+ assert.equal(el('demo-history-win').textContent,'100.0%');
+ assert.equal(el('demo-history-net').textContent,'$0.86');
+ assert.equal(el('demo-futures-closed-count').textContent,'1');
+ assert.equal(el('demo-futures-closed-pnl').textContent,'$0.86');
+ el('demo-history-bot').value='all';
+ el('demo-history-bot').handlers.change();
  assert.equal(el('demo-history-rows').children.length,3);
- assert.equal(el('demo-history-count').textContent,'3');
- assert.equal(el('demo-history-win').textContent,'66.7%');
  assert.equal(el('demo-history-net').textContent,'$0.66');
  el('demo-history-bot').value='Scalper';
  el('demo-history-bot').handlers.change();
  assert.equal(el('demo-history-count').textContent,'2');
+ assert.equal(el('demo-history-title').textContent,'Scalper Trade History');
  el('demo-history-result').value='loss';el('demo-history-result').handlers.change();
  assert.equal(el('demo-history-count').textContent,'1');
  assert.equal(el('demo-history-net').textContent,'−$0.90');
@@ -134,11 +143,34 @@ test('Real history lists verified Bybit closed PnL, correctly named directions a
  assert.equal(cells[3].textContent,'LONG');
  assert.equal(cells[7].textContent,'$7.52');
  assert.match(el('real-history-status').textContent,/BYBIT VERIFIED/);
+ assert.equal(el('real-futures-closed-count').textContent,'1');
+ assert.equal(el('real-futures-closed-pnl').textContent,'$7.52');
 });
 test('Failed Bybit authentication never presents guessed zero wins or fabricated history rows',async()=>{
  const {el}=await runUI('real',null);
  assert.equal(el('real-history-count').textContent,'—');
+ assert.equal(el('real-futures-closed-count').textContent,'—');
  assert.equal(el('real-history-net').textContent,'—');
  assert.match(el('real-history-status').textContent,/NOT VERIFIED/);
  assert.match(el('real-history-rows').children[0].children[0].textContent,/Sign in/);
+});
+
+test('Futures Trader cards expose direct non-trading history actions that reset the Demo filter',async()=>{
+ const html=read('index.html'),js=read('static/trade-history.js');
+ for(const id of ['demo-futures-history-open','real-futures-history-open',
+  'demo-futures-closed-count','real-futures-closed-count']){
+  assert.ok(html.includes('id="'+id+'"'),id);
+ }
+ assert.match(html,/id="demo-history-title">Futures Trade History/);
+ assert.match(html,/id="real-history-title">Futures Trade History/);
+ assert.match(html,/value="Futures Trader" selected/);
+ assert.match(js,/omega:paper-updated/);
+ assert.match(js,/demo\.rows\.filter\(r=>r\.source==='Futures Trader'\)/);
+ assert.match(js,/scrollIntoView/);
+ const {el}=await runUI('demo');
+ el('demo-history-bot').value='Scalper';el('demo-history-bot').handlers.change();
+ assert.equal(el('demo-history-count').textContent,'2');
+ el('demo-futures-history-open').handlers.click();
+ assert.equal(el('demo-history-bot').value,'Futures Trader');
+ assert.equal(el('demo-history-count').textContent,'1');
 });
