@@ -20,6 +20,7 @@ function responseFor(url){
 function fixture({mutate,delay=0}={}){
  const calls=[];let active=0,peak=0;
  const fetcher=async(url,options)=>{
+  if(new URL(url).hostname!=='api.bybit.com')return new Response('<rss><channel><item><title>Crypto weekly market overview</title><link>'+new URL(url).origin+'/news/overview</link><pubDate>'+new Date(NOW-60000).toUTCString()+'</pubDate></item></channel></rss>');
   calls.push({url,options});active++;peak=Math.max(peak,active);
   if(delay)await new Promise(resolve=>setTimeout(resolve,delay));
   const data=responseFor(url);if(mutate)mutate(data,new URL(url));
@@ -37,7 +38,7 @@ test('symbols are validated before network access, with a fixed USDT destination
 });
 test('all ten evidence sources use GET-only fixed public endpoints and preserve timestamps',async()=>{
  const f=fixture(),data=await collectEvidence('ETH',{fetcher:f.fetcher,now:NOW});
- assert.equal(f.calls.length,10);assert.equal(data.symbol,'ETHUSDT');assert.equal(data.observedAt,NOW);assert.deepEqual(data.errors,[]);
+ assert.equal(f.calls.length,10);assert.equal(data.symbol,'ETHUSDT');assert.equal(data.observedAt,NOW);assert.deepEqual(data.errors,[]);assert.equal(data.news.sources.length,2);assert.ok(data.news.sources.every(s=>s.ok));
  for(const call of f.calls){const url=new URL(call.url);assert.equal(url.origin,'https://api.bybit.com');assert.ok(url.pathname.startsWith('/v5/market/'));assert.equal(call.options.method,'GET');assert.equal(call.options.redirect,'error');assert.ok(call.options.signal instanceof AbortSignal);assert.equal(call.options.headers.Authorization,undefined);assert.equal(call.options.headers['X-BAPI-API-KEY'],undefined)}
  for(const key of ['five','quarter','hour','fourHour','benchmarkFive']){assert.equal(data[key].length,3);assert.ok(data[key][0][0]<data[key][1][0]);assert.ok(data[key].every(row=>row.every(Number.isFinite)));assert.equal(data.sourceTimes[key],NOW)}
  assert.equal(data.book.ts,NOW);assert.equal(data.openInterest[0].timestamp,String(NOW));assert.equal(data.fundingHistory[0].fundingRateTimestamp,String(NOW-3600000));
@@ -105,7 +106,7 @@ test('public decision endpoint rejects writes and invalid inputs before collecti
 });
 test('public API applies demo history policy explicitly and defaults to strict live policy',async()=>{
  const evidencePath=require.resolve('../lib/market-evidence'),apiPath=require.resolve('../api/decision'),previous=require.cache[evidencePath].exports;
- const e=require('./fixtures/advanced-evidence').evidence(Date.now());e.five=e.five.slice(-500);
+ const e=require('./fixtures/advanced-evidence').demoEvidence(Date.now());e.five=e.five.slice(-500);
  try{
   const options=[];require.cache[evidencePath].exports={...previous,collectEvidence:async(_,opt)=>{options.push(opt);return e}};delete require.cache[apiPath];const handler=require(apiPath);
   for(const mode of [undefined,'live','demo']){

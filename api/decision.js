@@ -1,7 +1,9 @@
 'use strict';
 // Public research decision: no authentication, credentials or order submission.
 const {collectEvidence,normalizeSymbol}=require('../lib/market-evidence');
+const news=require('../lib/market-news-api');
 module.exports=async(req,res)=>{
+ if(req.query?.context==='news')return news(req,res);
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
  if(req.method!=='GET')return res.status(405).json({error:'GET required'});
  let symbol,side,mode;

@@ -6,6 +6,14 @@
  let running=false,busy=false,managing=false,activeRun=null,cursor=null,passNumber=0;
  const status=(s,state)=>{$('auto-message').textContent=s;if(state)$('auto-state').textContent=state};
  const progress=s=>{if($('auto-progress'))$('auto-progress').textContent=s};
+ function feedback(plan,account=A.read()){
+  return window.OmegaFuturesFeedback?.assess(account.closed,{symbol:plan.symbol,side:plan.side,now:Date.now()})||{allowed:false,reason:'Futures outcome feedback unavailable'};
+ }
+ function review(plan){
+  if(!plan.eligible)return plan;
+  const outcome=feedback(plan),check={label:'No active repeated-loss pause for this Futures pair and direction',pass:outcome.allowed,detail:outcome.reason};
+  return {...plan,eligible:outcome.allowed,decision:outcome.allowed?plan.decision:'WAIT',reason:outcome.allowed?plan.reason:outcome.reason,feedback:outcome,checks:[...(plan.checks||[]),check]};
+ }
  function controls(){
   $('auto-state').textContent=running?'READY':'OFF';
   $('auto-toggle').textContent=running?'Pause demo autopilot':'Start automatic DEMO trades';
@@ -56,7 +64,7 @@
    },{signal:run.signal,timeoutMs:12000,label:'Market list'});
    $('auto-universe').textContent=Number(data.universe||0).toLocaleString();
    const {results,picks,coverage,summary,nextAfter}=await M.scanMarkets(data.rows||[],{
-    analyze:(symbol,options)=>window.OmegaDecision.analyze(symbol,{...options,mode:'demo'}),
+    analyze:async(symbol,options)=>review(await window.OmegaDecision.analyze(symbol,{...options,mode:'demo'})),
     signal:run.signal,maxMs:30000,requestTimeoutMs:18000,concurrency:4,allowPartial:true,startAfter:cursor,selectionWindowMs:permitEntries?1200:null,
     isCancelled:()=>document.hidden||permitEntries&&(!running||document.body.dataset.account==='real'),
     canEnter:p=>{const a=A.read();return !a.positions.some(x=>x.symbol===p.symbol.replace(/USDT$/,''))&&!window.OmegaPortfolio.concentrated(p.side,p.metrics?.benchmarkCorrelation,a.positions)},
@@ -85,7 +93,7 @@
    // A deep scan can take time. Obtain a current decision again immediately before entry.
    let fresh=null;
    $('auto-state').textContent='CHECKING ENTRY';
-   for(const ranked of picks){if(!running||document.hidden||document.body.dataset.account==='real')return;const latest=await M.within(signal=>window.OmegaDecision.analyze(ranked.symbol,{signal,mode:'demo',fresh:true}),{signal:run.signal,timeoutMs:25000,label:'Entry evidence'});if(latest.eligible&&['BUY','SELL'].includes(latest.side)&&latest.side===ranked.side){fresh=latest;break}}
+   for(const ranked of picks){if(!running||document.hidden||document.body.dataset.account==='real')return;const latest=await M.within(signal=>window.OmegaDecision.analyze(ranked.symbol,{signal,mode:'demo',fresh:true}),{signal:run.signal,timeoutMs:25000,label:'Entry evidence'});if(latest.eligible&&feedback(latest).allowed&&['BUY','SELL'].includes(latest.side)&&latest.side===ranked.side){fresh=latest;break}}
    if(!fresh)throw Error('No ranked pair still qualifies after refreshing market evidence.');
    window.OmegaDecision.render(fresh,fresh.symbol);
    if(!fresh.eligible||!['BUY','SELL'].includes(fresh.side))throw Error('The setup no longer qualifies: '+fresh.reason);
@@ -94,11 +102,13 @@
     if(!running||document.hidden||run.signal.aborted||document.body.dataset.account==='real')return a;
     if(a.positions.length>=E.MAX_POSITIONS)throw Error('All 10 virtual futures position slots are occupied. Waiting for exits.');
     const pick=fresh,symbol=pick.symbol.replace(/USDT$/,'');
+    const outcomes=feedback(pick,a);if(!outcomes.allowed)throw Error(outcomes.reason);
     if(a.positions.some(p=>p.symbol===symbol))throw Error('This market already has an open position.');
     if(!Number.isFinite(pick.observedAt)||Date.now()-pick.observedAt>10000||!Number.isFinite(pick.expiresAt)||Date.now()>pick.expiresAt||pick.observedAt>Date.now()+1000||Date.now()-(pick.barTime+300000)>360000)throw Error('Setup expired during scanning.');
     if(window.OmegaPortfolio.concentrated(pick.side,pick.metrics?.benchmarkCorrelation,a.positions))throw Error('Portfolio concentration: correlated exposure or unknown correlation blocks another position.');
-    const targetNet=Math.max(E.MIN_AUTO_PROFIT_USD,Math.min(1,Number(pick.targetNet)||0));
-    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:100,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null,forwardValidationVersion:'OMEGA_FORWARD_V1',qualityScore:Number.isFinite(pick.quality?.score)?pick.quality.score:null,regime:pick.metrics?.atrPct>1.8?'HIGH VOLATILITY':pick.metrics?.adx>=25&&pick.metrics?.atrPct>=.08?'TREND':'RANGE / TRANSITION'}});
+    if(!Number.isFinite(pick.targetNet)||pick.targetNet<E.MIN_PROFIT_USD)throw Error('Decision target does not match the Demo futures exit policy.');
+    const targetNet=pick.targetNet;
+    const next=E.open(a,{[symbol]:pick.executionPrice},{symbol,side:pick.side,notional:100,stopPct:pick.stopPct,auto:true,atr:pick.atr,targetNet,slippageBps:pick.slippageBps,entryEvidence:{strategy:'evidence-v11',executionPolicy:pick.executionPolicy,historicalValidation:pick.validation?.passed===true,historicalTrades:pick.validation?.tradeCount??0,observedAt:pick.observedAt,checksPassed:pick.checks.filter(c=>c.pass).length,checksTotal:pick.checks.length,benchmarkCorrelation:pick.metrics?.benchmarkCorrelation??null,forwardValidationVersion:'OMEGA_FORWARD_V1',qualityScore:Number.isFinite(pick.quality?.score)?pick.quality.score:null,decisionVersion:'FUTURES_V12',structure:pick.structure?.setup??null,movementRegime:pick.movement?.regime??null,netRewardRisk:pick.economics?.netRewardRisk??null,estimatedStopNetUsd:pick.economics?.estimatedStopNetUsd??null,targetNet,regime:pick.metrics?.atrPct>1.8?'HIGH VOLATILITY':pick.metrics?.adx>=25&&pick.metrics?.atrPct>=.08?'TREND':'RANGE / TRANSITION'}});
     entryMessage='Pass '+pass+': opened $100 virtual '+pick.side+' '+symbol+'. Net profit target $'+targetNet.toFixed(2)+' after simulated costs. Protective stop active.'+(pick.warnings?.length?' Historical sample unvalidated; demo forward test.':'');
     return next;
    },{requireLock:true,signal}),{signal:run.signal,timeoutMs:5000,label:'Demo entry account lock'});

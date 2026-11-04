@@ -27,7 +27,7 @@ async function scan(trading){
    if(!Number.isFinite(account.equity)||!Number.isFinite(account.available))throw Error('Bybit account balance unavailable');
    if(account.openPositions>=10){status('All 10 real-money position slots are occupied. Waiting for exchange-managed exits.','MANAGING');return}
    if(account.equity<500||account.available<100){
-    status('Next $15 entry requires at least $500 equity and $100 available. Existing protected trades can continue.','BALANCE LOW');return;
+    status('Next $100 entry requires at least $500 equity and $100 available. Existing protected trades can continue.','BALANCE LOW');return;
    }
    const positions=Array.isArray(account.positions)?account.positions:[];
    if(positions.length){
@@ -61,7 +61,7 @@ async function scan(trading){
   const order=await request('/api/auto-live',{action:'enter',symbol:selected.symbol,token},controller.signal);
   if(!order.submitted)throw Error('Bybit did not acknowledge an order');
   lastBar=selected.barTime;
-  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Estimated net TP goal $0.05+ at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
+  status('Bybit accepted '+order.side+' '+order.symbol+' ($'+Number(order.notional).toFixed(2)+'). Status: '+order.orderStatus+'. Modeled net target $'+Number(order.estimatedTakeProfitNetUsd).toFixed(2)+' at '+order.takeProfit+' · stop '+order.stopLoss+'. Verify realized profit and protection at Bybit.','ORDER SENT');
   progress('One $100 real entry requested. Broker portfolio may hold up to 10 separate protected positions, but total 20% exposure and $1 modeled stop-risk caps still apply.');
  }catch(e){
   if(canceled())return;

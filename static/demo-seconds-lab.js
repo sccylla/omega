@@ -11,6 +11,7 @@
  let active=false,socket=null,engine=null,symbols=[],wallet=null,epoch=0,lastConnected=0,lastDiagnostic=0,lastFeedUpdate=0,retryTimer=null,retryCount=0;
  let latestQuotes={};
  const intelligence=I.create();
+ const news=window.OmegaNewsContext?.create();
  function read(){try{return A.restore(JSON.parse(localStorage.getItem(walletKey)||'null'),Date.now(),walletKey===SMALL_KEY?A.SMALL_VERSION:A.VERSION)}catch{return walletKey===SMALL_KEY?A.smallInitial():A.initial()}}
  wallet=read();
  // An open position from a closed/reloaded browser has no verified exit.
@@ -161,13 +162,14 @@
    return
   }
   const now=Date.now();
+  news?.refresh(symbols);
   if(now-lastConnected>16000&&(!lastFeedUpdate||now-lastFeedUpdate>16000)){
    recover('No fresh Bybit order book or matched trade updates for 16 seconds',epoch);return;
   }
   const preSignals=symbols.map(s=>G.filter(X.evaluate(engine.observation(s,now)),engine.history(s),now)),
    histories=Object.fromEntries(symbols.map(s=>[s,engine.history(s)])),
    reviewed=intelligence.update(preSignals,histories,wallet.ledger.closed,now),
-   results=reviewed.signals,
+   results=news?news.filter(reviewed.signals,now):reviewed.signals.map(s=>s?.state==='WATCH'?{...s,state:'WAIT',side:null,reason:'News context unavailable; new entries paused'}:s),
    quotes=Object.fromEntries(symbols.map(s=>[s,engine.execution(s,now)]));
   latestQuotes=quotes;
   const out=A.step(wallet,{now,signals:results,quotes,connected:true});

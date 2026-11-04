@@ -18,3 +18,6 @@ playwright-report/
 **/*.db
 # Legacy persistent-worker route omitted from free-tier browser-autopilot build.
 api/bot.js
+# News shares the decision function to retain the 12-function Hobby limit.
+# Its handler lives in lib/market-news-api.js and remains in the upload.
+api/news.js

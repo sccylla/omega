@@ -38,6 +38,12 @@
       "maxDuration": 60
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/news",
+      "destination": "/api/decision?context=news"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",

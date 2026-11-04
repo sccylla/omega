@@ -8,6 +8,7 @@ const {collectEvidence}=require('../lib/market-evidence');
 const {decide}=require('../lib/advanced-decision');
 const portfolio=require('../lib/live-portfolio');
 const ScalpEvidence=require('../lib/scalp-evidence');
+const {MIN_REWARD_RISK}=require('../lib/futures-economics');
 const AUTO_TRADE_USD=100,AUTO_MAX_TRADE_USD=102,AUTO_MIN_EQUITY_USD=500,AUTO_NET_GOAL_USD=.05;
 const {MAX_EXPOSURE_FRACTION}=require('../lib/live-policy');
 const SYMBOL=/^[A-Z0-9]{2,24}USDT$/,MAX_SESSION_MS=60*60*1000;
@@ -43,7 +44,7 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
   if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'GET or POST required'});
   if(!authentication.isAuthed(req))return res.status(401).json({error:'Sign in to start real-money autopilot'});
   try{
-   if(req.method==='GET')return res.status(200).json({mode:'BROWSER_CONTROLLED_LIVE',configured:broker.ready(),enabled:enabled(),maxPositionCount:portfolio.MAX_POSITIONS,portfolioExposureLimitPct:20,minimumTradeUsd:AUTO_TRADE_USD,tradeBudget:AUTO_TRADE_USD,maxTradeUsd:AUTO_MAX_TRADE_USD,minimumEquityUsd:AUTO_MIN_EQUITY_USD,estimatedNetProfitTargetUsd:AUTO_NET_GOAL_USD,exchangeManagedExits:true,expiresInMinutes:60,runsOnlyInVisibleBrowser:true});
+   if(req.method==='GET')return res.status(200).json({mode:'BROWSER_CONTROLLED_LIVE',configured:broker.ready(),enabled:enabled(),maxPositionCount:portfolio.MAX_POSITIONS,portfolioExposureLimitPct:20,minimumTradeUsd:AUTO_TRADE_USD,tradeBudget:AUTO_TRADE_USD,maxTradeUsd:AUTO_MAX_TRADE_USD,minimumEquityUsd:AUTO_MIN_EQUITY_USD,estimatedNetProfitTargetUsd:null,futuresMinimumNetRewardRisk:MIN_REWARD_RISK,scalperMinimumNetTargetUsd:AUTO_NET_GOAL_USD,exchangeManagedExits:true,expiresInMinutes:60,runsOnlyInVisibleBrowser:true});
    authentication.assertOrigin(req);
    if(!req.body||JSON.stringify(req.body).length>2500)throw error(400,'Invalid trading request');
    if(!enabled()||!broker.ready())throw error(503,'Browser-controlled live trading is not enabled or credentials are missing');
@@ -68,11 +69,18 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
    // Never trust browser candidates: strict live evidence is collected again.
    const plan=await analyze(symbol);
    if(!plan||plan.symbol!==symbol||plan.executionPolicy!=='LIVE_STRICT'||plan.eligible!==true||!['BUY','SELL'].includes(plan.side)||(scalper&&micro.side!==(plan.side==='BUY'?'Buy':'Sell'))||!Number.isSafeInteger(plan.barTime)||!Number.isFinite(plan.expiresAt)||clock()>plan.expiresAt||clock()-(plan.barTime+300000)>360000)throw error(409,'This pair does not have a fresh, qualified live entry');
-   // Exchange TP is set at entry for at least $0.05 modeled net profit,
-   // with a small buffer; actual net realized P&L is not guaranteed.
-   const profitPlan={...plan,targetNet:AUTO_NET_GOAL_USD+.01};
+   // Futures preserves its risk-aware target. The seconds scalper has its own
+   // explicitly separate target policy; neither is a realized-profit promise.
+   if(!scalper&&(!Number.isFinite(plan.targetNet)||plan.targetNet<=0))throw error(409,'Futures target is unavailable');
+   const profitPlan=scalper?{...plan,targetNet:AUTO_NET_GOAL_USD+.01,minimumNetRewardRisk:undefined}:{...plan,minimumNetRewardRisk:MIN_REWARD_RISK};
    const ticket=await broker.ticket(symbol,plan.side==='BUY'?'Buy':'Sell',profitPlan,{notionalUsd:AUTO_TRADE_USD,maxNotionalUsd:AUTO_MAX_TRADE_USD});
    if(!Number.isFinite(ticket.estimatedTakeProfitNetUsd)||ticket.estimatedTakeProfitNetUsd<AUTO_NET_GOAL_USD)throw error(409,'Exchange ticket does not meet the $0.05 estimated net take-profit target');
+   if(!scalper){
+    const dir=ticket.side==='Buy'?1:ticket.side==='Sell'?-1:NaN,qty=Number(ticket.qty),stop=Number(ticket.stopLoss),tp=Number(ticket.takeProfit),costRate=Math.max(.0022,Number(ticket.estimatedRoundTripCostRate));
+    const risk=dir*(ticket.price-stop)*qty+ticket.notional*costRate;
+    const reward=Math.min(ticket.estimatedTakeProfitNetUsd,dir*(tp-ticket.price)*qty-ticket.notional*costRate);
+    if(![risk,reward].every(Number.isFinite)||risk<=0||reward+1e-8<MIN_REWARD_RISK*risk||reward+1e-8<plan.targetNet)throw error(409,'Futures ticket does not preserve the required net reward/risk after rounding and costs');
+   }
    const recent=await broker.snapshot();
    const limits=guardAccount(recent,{symbol,ticket});
    if(clock()>plan.expiresAt)throw error(409,'Signal expired during broker price and risk checks');
@@ -90,7 +98,7 @@ function factory({env=process.env,broker=new LiveBroker({env}),analyze=async sym
     const result=await broker.enter(ticket,link);
     let orderStatus='PENDING VERIFICATION';
     try{const order=await broker.order(symbol,link);if(order?.orderStatus)orderStatus=order.orderStatus}catch{}
-    return res.status(202).json({submitted:true,symbol,side:plan.side,notional:ticket.notional,orderId:result?.orderId||null,orderLinkId:link,orderStatus,stopLoss:ticket.stopLoss,takeProfit:ticket.takeProfit,estimatedNetProfitTargetUsd:AUTO_NET_GOAL_USD,estimatedTakeProfitNetUsd:ticket.estimatedTakeProfitNetUsd,estimatedStopRiskUsd:limits.stopRiskUsd,strategy:scalper?'SCALPER':'FUTURES',message:'Bybit accepted the order request. Verify the actual fill and exchange-side protection in Bybit.'});
+    return res.status(202).json({submitted:true,symbol,side:plan.side,notional:ticket.notional,orderId:result?.orderId||null,orderLinkId:link,orderStatus,stopLoss:ticket.stopLoss,takeProfit:ticket.takeProfit,estimatedNetProfitTargetUsd:scalper?AUTO_NET_GOAL_USD:ticket.estimatedTakeProfitNetUsd,estimatedTakeProfitNetUsd:ticket.estimatedTakeProfitNetUsd,estimatedStopRiskUsd:limits.estimatedStopRiskUsd,strategy:scalper?'SCALPER':'FUTURES',message:'Bybit accepted the order request. Verify the actual fill and exchange-side protection in Bybit.'});
    }catch(e){if(e.status)throw e;throw error(502,'Order outcome uncertain. STOP autopilot and inspect Bybit positions and order history before another entry. '+String(e.message||'').slice(0,80))}
   }catch(e){return res.status(e.status||502).json({error:e.status?e.message:'Live trade request failed. Check Bybit orders and positions before attempting again.'})}
  };

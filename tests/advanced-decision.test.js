@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {decide,holdout,candles,resampleComplete,correlation,priceRules}=require('../lib/advanced-decision');
-const {NOW,series,evidence}=require('./fixtures/advanced-evidence');
+const {NOW,series,evidence,demoEvidence}=require('./fixtures/advanced-evidence');
 test('fully covered synthetic evidence may qualify, with no invented profit probability',()=>{
  const x=decide(evidence(),{now:NOW});
  assert.equal(x.eligible,true);assert.equal(x.decision,'BUY');assert.equal(x.notional,90);assert.equal(x.expiresAt,NOW+10000);assert.ok(x.checks.every(c=>c.pass));
@@ -105,21 +105,21 @@ test('no-time-limit holdout keeps unresolved trades open instead of inventing sa
  assert.match(result.reason,/unresolved/);
 });
 test('demo can forward-test a current qualifying setup without twenty historical closed trades; live cannot',()=>{
- const e=evidence();e.five=e.five.slice(-500);
+ const e=demoEvidence();e.five=e.five.slice(-500);
  const strict=decide(e,{now:NOW}),live=decide(e,{now:NOW,mode:'live'}),demo=decide(e,{now:NOW,mode:'demo'});
  assert.equal(strict.eligible,false);assert.equal(live.eligible,false);assert.match(strict.reason,/Insufficient closed holdout trades/);
  assert.equal(demo.eligible,true);assert.equal(demo.executionPolicy,'DEMO_FORWARD_TEST');assert.equal(demo.validation.entryGate,'ADVISORY_DEMO');
  assert.equal(demo.validation.passed,false);assert.equal(demo.validation.tradeCount,0);assert.equal(demo.blockers.length,0);assert.ok(demo.warnings.length);
- assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,2);
- assert.ok(Math.abs(demo.targetNet-(100/90)*strict.targetNet)<1e-10);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
+ assert.ok(demo.checks.filter(c=>c.required!==false).every(c=>c.pass));assert.equal(demo.checks.filter(c=>c.required===false).length,1);
+ assert.equal(demo.targetNet,5);assert.equal(demo.validation.minimumTargetNet,5);assert.equal(demo.stopPct,strict.stopPct);assert.equal(demo.notional,100);
  assert.equal(decide(e,{now:NOW,mode:'unrecognized'}).eligible,false);
 });
 test('demo history advisory never bypasses current market data, direction, spread, funding or sizing rules',()=>{
  for(const mutate of [e=>e.book=null,e=>e.five.splice(100,1),e=>e.ticker.turnover24h='1',e=>e.ticker.fundingRate='.001',e=>e.instrument.lotSizeFilter.minNotionalValue='101',e=>e.sourceTimes.ticker=NOW-16000]){
-  const e=evidence();e.five=e.five.slice(-500);mutate(e);const plan=decide(e,{now:NOW,mode:'demo'});
+  const e=demoEvidence();e.five=e.five.slice(-500);mutate(e);const plan=decide(e,{now:NOW,mode:'demo'});
   assert.equal(plan.eligible,false);assert.ok(plan.blockers.length);assert.ok(plan.checks.some(c=>!c.pass&&c.required!==false));
  }
- const e=evidence();e.five=e.five.slice(-500);assert.equal(decide(e,{now:NOW,mode:'demo',side:'SELL'}).eligible,false);
+ const e=demoEvidence();e.five=e.five.slice(-500);assert.equal(decide(e,{now:NOW,mode:'demo',side:'SELL'}).eligible,false);
 });
 test('an executable quote beyond the signal ATR blocks a late entry even with a coherent narrow book',()=>{
  const e=evidence(),scale=1.0049;
@@ -128,8 +128,8 @@ test('an executable quote beyond the signal ATR blocks a late entry even with a 
  const plan=decide(e,{now:NOW,mode:'demo'});assert.equal(plan.eligible,false);assert.ok(plan.blockers.some(x=>x.includes('Executable price still fits the signal')));
 });
 
-test('demo may forward-test four-hour trend disagreement but strict live entry is still blocked',()=>{
- const e=evidence();
+test('Demo and Real both reject four-hour trend disagreement',()=>{
+ const e=demoEvidence();
  const dir=decide(e,{now:NOW,mode:'demo'}).side;
  e.fourHour=e.fourHour.map((bar,i)=>{
   const base=12*(1-i*.00045),open=base,close=base*(1-.0001);
@@ -138,9 +138,9 @@ test('demo may forward-test four-hour trend disagreement but strict live entry i
  const demo=decide(e,{now:NOW,mode:'demo'});
  const strict=decide(e,{now:NOW,mode:'live'});
  assert.equal(dir,'BUY');
- assert.equal(demo.eligible,true);
- assert.ok(demo.checks.some(c=>c.label.includes('4h trend')&&!c.pass&&c.required===false));
- assert.ok(demo.warnings.some(c=>c.includes('Four-hour trend conflicts')));
+ assert.equal(demo.eligible,false);
+ assert.ok(demo.checks.some(c=>c.label.includes('4h trend')&&!c.pass&&c.required!==false));
+ assert.ok(demo.blockers.some(c=>c.includes('4h trend')));
  assert.equal(strict.eligible,false);
  assert.ok(strict.blockers.some(c=>c.includes('4h trend')));
 });

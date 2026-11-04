@@ -22,13 +22,15 @@ function fake(){
   snapshot:async()=>({equity:800,available:800,pnlToday:0,positions:[],pending:[]}),
   ticket:async(symbol,side,plan,options)=>{
    assert.deepEqual(options,{notionalUsd:100,maxNotionalUsd:102});
+   assert.equal(plan.minimumNetRewardRisk,undefined,'Futures payoff policy must not replace the separate scalp policy');
+   assert.ok(Math.abs(plan.targetNet-.06)<1e-12);
    return{symbol,side,qty:'1',price:100.01,notional:100.01,stopLoss:'99.71',takeProfit:'100.7',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:.06};
   },
   order:async()=>null,leverage:async()=>{},
   enter:async(ticket,link)=>{orders.push({ticket,link});return{orderId:'bybit-ack'}},
  };
  const plan={symbol:'XRPUSDT',eligible:true,executionPolicy:'LIVE_STRICT',side:'BUY',
-  barTime:Math.floor((NOW-300000)/300000)*300000,expiresAt:NOW+50000,price:100.01,stopPct:.3,targetNet:.06};
+  barTime:Math.floor((NOW-300000)/300000)*300000,expiresAt:NOW+50000,price:100.01,stopPct:.3,targetNet:.06,minimumNetRewardRisk:1.5};
  return {broker,orders,plan};
 }
 test('server independently confirms recent trend, bid/ask depth, aggressive flow and fees',()=>{

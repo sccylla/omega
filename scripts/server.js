@@ -18,7 +18,7 @@ setController(worker);
 setLocalStore(new FilePaperStore(directory));
 const timer=setInterval(()=>worker.cycle(),15000);
 const config = require(path.join(root, 'vercel.json'));
-const apis = new Set(['market','demo','paper','quant','intelligence','forex-demo','scanner','live','bot','decision','quote']);
+const apis = new Set(['market','demo','paper','quant','intelligence','forex-demo','scanner','live','bot','decision','quote','news','auto-live','manual-live']);
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
 const server = http.createServer(async (req, res) => {
   res.status = code => { res.statusCode = code; return res; };

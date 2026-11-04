@@ -21,6 +21,9 @@
    [dir!==0&&alignedBook>=.02,'Top-book liquidity does not confirm the impulse'],
    [raw.range30Bps<=200,'Extreme volatility shock; high reversal risk']
   ];
+  // Exploratory thresholds may differ from Real, but do not bypass observed
+  // whipsaw/reversal or missing-data vetoes produced by the shared engine.
+  checks.push([raw.movement?.persistent===true,raw.movement?.reason||'Missing current movement-path analysis']);
   const reasons=checks.filter(x=>!x[0]).map(x=>x[1]);
   const score=round(
    25*clamp(raw.range30Bps/14,0,1)+

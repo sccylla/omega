@@ -5,13 +5,13 @@ const env={OMEGA_SMALL_LIVE_ORDERS_ENABLED:'true',OMEGA_BROWSER_AUTOLIVE_ENABLED
 const now=1800000005000,bar=Math.floor((now-300000)/300000)*300000;
 const auth={getCookie:r=>r.headers.cookie==='owner'?'owner':null,isAuthed:r=>r.headers.cookie==='owner',assertOrigin:r=>{if(r.headers.origin!=='https://example.test'||r.headers['x-omega-request']!=='1')throw Object.assign(Error('Origin rejected'),{status:403})}};
 const clean=()=>({equity:800,available:800,pnlToday:0,positions:[],pending:[]});
-const plan=()=>({symbol:'XRPUSDT',side:'BUY',eligible:true,executionPolicy:'LIVE_STRICT',barTime:bar,expiresAt:now+50000,price:1.01,targetNet:0.12,reason:'All required checks passed'});
+const plan=()=>({symbol:'XRPUSDT',side:'BUY',eligible:true,executionPolicy:'LIVE_STRICT',barTime:bar,expiresAt:now+50000,price:1.01,targetNet:1.2,reason:'All required checks passed'});
 function fake(){
  const writes=[];let open=false,pending=false,existing=null;
  const broker={
   ready:()=>true,
   snapshot:async()=>({...clean(),positions:open?[{symbol:'XRPUSDT'}]:[],pending:pending?[{symbol:'XRPUSDT'}]:[]}),
-  ticket:async(symbol,side,plan,options)=>{assert.deepEqual(options,{notionalUsd:100,maxNotionalUsd:102});return{symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'100',notional:101,stopLoss:'1.005',takeProfit:'1.019',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}},
+  ticket:async(symbol,side,plan,options)=>{assert.deepEqual(options,{notionalUsd:100,maxNotionalUsd:102});return{symbol:'XRPUSDT',side:'Buy',price:1.01,qty:'100',notional:101,stopLoss:'1.005',takeProfit:'1.027',estimatedRoundTripCostRate:.0022,estimatedTakeProfitNetUsd:plan.targetNet+.001}},
   order:async()=>existing,
   leverage:async()=>{writes.push('leverage')},
   enter:async(ticket,link)=>{writes.push({ticket,link});return{orderId:'id-1'}}
@@ -73,6 +73,22 @@ test('broker replay check refuses a duplicate five-minute order ID',async()=>{
 test('status is observational, never arms or trades',async()=>{
  const f=fake(),h=factory({env,broker:f.broker,authentication:auth,clock:()=>now});
  const r=await call(h,'GET');assert.equal(r.code,200);assert.equal(r.data.mode,'BROWSER_CONTROLLED_LIVE');assert.equal(f.writes.length,0);
+});
+
+test('futures keeps its calculated target and rejects the former tiny-payoff execution',async()=>{
+ const f=fake(),ticket=f.broker.ticket;let supplied;
+ f.broker.ticket=async(...args)=>{supplied=args[2];return ticket(...args)};
+ const token=issueArm({headers:{cookie:'owner'}},env,auth,now);
+ const h=factory({env,broker:f.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
+ const result=await call(h,'POST',{action:'enter',symbol:'XRPUSDT',token});
+ assert.equal(result.code,202);assert.equal(supplied.targetNet,plan().targetNet);
+ assert.equal(supplied.minimumNetRewardRisk,1.5);
+ assert.equal(result.data.estimatedNetProfitTargetUsd,result.data.estimatedTakeProfitNetUsd);
+ assert.ok(result.data.estimatedStopRiskUsd>0);
+ const bad=fake();bad.broker.ticket=async(...args)=>({...await ticket(...args),estimatedTakeProfitNetUsd:.06});
+ const blocked=factory({env,broker:bad.broker,analyze:async()=>plan(),authentication:auth,clock:()=>now});
+ const rejected=await call(blocked,'POST',{action:'enter',symbol:'XRPUSDT',token});
+ assert.equal(rejected.code,409);assert.match(rejected.data.error,/reward\/risk/);assert.equal(bad.writes.length,0);
 });
 
 test('$100 live autopilot can arm with $800 equity, not with $88 equity or <$100 available',async()=>{

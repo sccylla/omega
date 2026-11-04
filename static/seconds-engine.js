@@ -4,6 +4,19 @@
  const MIN_NOTIONAL=90,GOAL_NET=.50,MAKERLESS_TAKER=.00055,EXTRA_SLIP=.00020;
  const SYMBOL=/^[A-Z0-9]{2,20}USDT$/,MAX_SYMBOLS=5,MAX_AGE_MS=2300;
  const finite=Number.isFinite,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),round=(n,d=3)=>Number(n.toFixed(d));
+ // Net momentum alone can hide a noisy round trip or a move that has already
+ // reversed. Measure the actual sampled path, using only observations at now.
+ function analyzeMovement(history,second){
+  const rows=(Array.isArray(history)?history:[]).filter(x=>finite(x?.s)&&finite(x?.mid)&&x.mid>0&&x.s>=second-15&&x.s<=second);
+  const first=rows[0],last=rows.at(-1);let path=0,maxGap=0,ordered=true;
+  for(let i=1;i<rows.length;i++){path+=Math.abs(rows[i].mid-rows[i-1].mid);const gap=rows[i].s-rows[i-1].s;maxGap=Math.max(maxGap,gap);if(gap<=0)ordered=false}
+  const ready=rows.length>=10&&last.s-first.s>=12&&second-last.s<=2&&maxGap<=3&&ordered;
+  const net=last&&first?last.mid-first.mid:0,efficiency=path>0?Math.abs(net)/path:0;
+  const prior=rows.filter(x=>x.s<=second-5).at(-1),move5Bps=prior&&last?10000*(last.mid/prior.mid-1):null;
+  const direction=Math.sign(net),persistent=ready&&direction!==0&&efficiency>=.35&&finite(move5Bps)&&direction*move5Bps>0;
+  return {ready,persistent,efficiency15:round(efficiency),move5Bps,observations:rows.length,maxGapSeconds:maxGap,
+   reason:!ready?'Need continuous, fresh 15-second movement observations':efficiency<.35?'Choppy price path: net movement is small relative to reversals':!persistent?'Recent movement has stalled or reversed':'Directional movement persists through the recent price path'};
+ }
  const validSymbols=(raw,{maxSymbols=5}={})=>{
   const a=Array.isArray(raw)?raw:String(raw||'').toUpperCase().split(/[,\s]+/).filter(Boolean);
   if(!Number.isInteger(maxSymbols)||maxSymbols<1||maxSymbols>20)throw Error('Invalid research pair limit');
@@ -98,6 +111,7 @@
    const totalUsd=trades.reduce((n,t)=>n+t.usd,0);
    const pressure=totalUsd?trades.reduce((n,t)=>n+t.dir*t.usd,0)/totalUsd:0;
    const dir=move5===null||move15===null?0:Math.sign(move15);
+   const movement=analyzeMovement(series,Math.floor(now/1000));
    const reasons=[];
    if(move30===null||move15===null||move5===null||recent.length<23)reasons.push('Collecting 30 seconds of actual price observations');
    if(count<12||now-r.tradeTime>2500)reasons.push('Insufficient recent matched trades');
@@ -109,6 +123,7 @@
    if(dir&&pressure*dir<.30)reasons.push('Aggressor trades do not confirm direction');
    if(dir&&quote.imbalance*dir<.06)reasons.push('Order-book depth does not confirm direction');
    if(range30>500)reasons.push('Extreme 30-second shock; avoid unbounded reversal risk');
+   if(!movement.persistent)reasons.push(movement.reason);
    const qualified=reasons.length===0;
    const score=round(clamp(25*clamp((range30||0)/quote.requiredMoveBps,0,2)/2,0,25)+
     20*clamp(1-quote.roundTripImpactBps/12,0,1)+
@@ -117,7 +132,7 @@
     10*clamp(dir*quote.imbalance/.6,0,1)+
     15*clamp(Math.abs(move15||0)/Math.max(quote.requiredMoveBps,1),0,1),1);
    return {...quote,state:qualified?'WATCH':move30===null?'WARMING':'WAIT',side:qualified?(dir===1?'BUY':'SELL'):null,score,
-    move5Bps:move5,move15Bps:move15,move30Bps:move30,range30Bps:range30,matchedTrades15s:count,flowPressure:pressure,reason:reasons[0]||'Unusual short-term move with cost, liquidity and flow checks',reasons,
+    move5Bps:move5,move15Bps:move15,move30Bps:move30,range30Bps:range30,matchedTrades15s:count,flowPressure:pressure,movement,reason:reasons[0]||'Unusual short-term move with cost, liquidity and flow checks',reasons,
     meaning:'Microstructure eligibility heuristic, NOT a forecast, win probability or live trading authorization'};
   }
   function diagnostics(symbol,now=Date.now()){
@@ -141,5 +156,5 @@
   }
   return {symbols:list,ingest,execution,observation,diagnostics,history:symbol=>(stores[symbol]?.midHistory||[]).map(x=>({...x}))};
  }
- return {create,validSymbols,MIN_NOTIONAL,GOAL_NET,MAKERLESS_TAKER,EXTRA_SLIP};
+ return {create,validSymbols,analyzeMovement,MIN_NOTIONAL,GOAL_NET,MAKERLESS_TAKER,EXTRA_SLIP};
 });
